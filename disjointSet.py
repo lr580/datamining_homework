@@ -6,18 +6,22 @@ class DSU:
     '''朴素并查集'''
     def __init__(self, n):
         self.fa = [i for i in range(n)] # 根节点
+        self.n = n
     def findFa(self, x):
         '''求x节点的根并返回'''
         while self.fa[x] != x:
             self.fa[x] = self.fa[self.fa[x]]
             x = self.fa[x] # 路径压缩
         return x
+    def mergeop(self, fx, fy):
+        '''钩子函数，额外信息合并，给定两个根节点fx->fy'''
     def merge(self, x, y):
         '''若两节点x,y不在同一根，合并并返回True，否则返回False'''
         fx, fy = self.findFa(x), self.findFa(y)
         if fx == fy:
             return False
         fx, fy = sorted([fx, fy], reverse=True) # 最小做根，方便debug输出信息
+        self.mergeop(fx, fy) # 钩子函数，给子类用
         self.fa[fx] = fy
         return True
         
@@ -42,21 +46,33 @@ class Solution:
         return sum([ds.findFa(i)==i for i in range(n)])
 '''
 
+def getClasses(dsu:DSU):
+    '''把DSU的[0,n)分类映射到[0,k)返回长n列表代表每个元素属于哪类'''
+    n = len(dsu.fa)
+    maps = dict()
+    for i in range(n):
+        if dsu.findFa(i) == i:
+            maps[dsu.findFa(i)] = len(maps)
+    return [maps[dsu.fa[i]] for i in range(n)]
+
 class DSU_max(DSU):
     '''最大聚类并查集'''
     def __init__(self, n, a):
         super().__init__(n)
         self.max = copy.deepcopy(a) # 与每组距离的最大值
-        
-    def merge(self, x, y):
+    def mergeop(self, fx, fy):
+        for i in range(len(self.fa)):
+            self.max[fy][i] = max(self.max[fx][i], self.max[fy][i])
+    '''def merge(self, x, y):
         fx, fy = self.findFa(x), self.findFa(y)
         if fx == fy:
             return False
+        # fx, fy = sorted([fx, fy], reverse=True) 加上这行发现样例不对，进而发现了bugs
         for i in range(len(self.fa)):
             self.max[fy][i] = max(self.max[fx][i], self.max[fy][i])
         self.fa[fx] = fy
-        return True
-    '''def findFa(self, x):
+        return True'''
+    '''def findFa(self, x): # 能对，但是该写法太麻烦
         if x == self.fa[x]:
             return x
         res = self.findFa(self.fa[x])
@@ -66,6 +82,19 @@ class DSU_max(DSU):
         print(self.max[x])
         self.fa[x] = res
         return self.fa[x]'''
+    
+class DSU_ele(DSU):
+    '''维护节点元素并查集'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.ele = [set([i]) for i in range(n)] # 元素集
+        # self.info = copy.deepcopy(a) # 聚合信息集
+        # self.agg = f
+    def mergeop(self, fx, fy):
+        # for i in range(self.n):
+        #     self.info[fy][i] = self.agg(self.info[fx][i], self.info[fy][i])
+        self.ele[fy] |= self.ele[fx]
+        self.ele[fx] = set()
 
 class DSU_size:
     '''维护节点元素数、已用边的并查集 \n 暂时没用到这个并查集'''
@@ -88,12 +117,3 @@ class DSU_size:
         self.used[fy] = 0
         self.fa[fx] = fy
         return True
-    
-def getClasses(dsu:DSU):
-    '''把DSU的[0,n)分类映射到[0,k)返回长n列表代表每个元素属于哪类'''
-    n = len(dsu.fa)
-    maps = dict()
-    for i in range(n):
-        if dsu.findFa(i) == i:
-            maps[dsu.findFa(i)] = len(maps)
-    return [maps[dsu.fa[i]] for i in range(n)]
