@@ -1,4 +1,5 @@
-# 个人实现 https://github.com/lr580/algorithm_template
+# 个人手写实现的可删堆
+# 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
 # 因为不给用第三方库，所以没用 sortedcontainer 的 sortedlist
 from heapq import heappush, heappop
 class Heap:

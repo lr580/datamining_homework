@@ -1,5 +1,6 @@
-# 并查集实现，均摊 O(α)≈O(1) 复杂度的单次操作；参考：https://oi-wiki.org/ds/dsu-complexity
-# 个人实现 https://github.com/lr580/algorithm_template
+# 并查集（DSU，Disjoint Set Union）个人手写实现
+# 均摊 O(α)≈O(1) 复杂度的单次操作；复杂度分析参考：https://oi-wiki.org/ds/dsu-complexity
+# 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
 import copy
 
 class DSU:
@@ -83,6 +84,9 @@ class DSU_avg(DSU_ele):
         n = len(self.ele[fx])
         return self.sx[fx] / n, self.sy[fx] / n
 
+
+# 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
+
 class DSU_max(DSU):
     '''最大聚类并查集'''
     def __init__(self, n, a):
@@ -112,7 +116,8 @@ class DSU_max(DSU):
         return self.fa[x]'''
 
 class DSU_size:
-    '''维护节点元素数、已用边的并查集 \n 暂时没用到这个并查集'''
+    '''维护节点元素数、已用边的并查集;暂时没用到这个并查集 \n 
+    写这个数据结构时还没想到父子类代码复用'''
     def __init__(self, n):
         self.n = n
         self.fa = [i for i in range(n)] # 根节点

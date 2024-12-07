@@ -90,7 +90,7 @@ def reconstruct_points(distance_matrix):
     return X
 
 def f3():
-
+    import numpy as np
     # 示例距离矩阵
     distance_matrix = np.array([[0, 1, 2],
                                 [1, 0, 1],
@@ -99,5 +99,34 @@ def f3():
     points = reconstruct_points(distance_matrix)
     print("重构的点坐标：")
     print(points)
+    print()
+
+    from sklearn.manifold import MDS
+    # 假设 D 是你的距离矩阵
+    D = np.array([[0, 1, 2], [1, 0, 1], [2, 1, 0]])
+    # n  =3
+    # D_squared = D ** 2
+    # H = np.eye(n) - np.ones((n, n)) / n
+    # B = -0.5 * H @ D_squared @ H
+
+    # 使用 MDS 进行降维
+    mds = MDS(n_components=2, dissimilarity='precomputed')
+    points = mds.fit_transform(D)
+    print(((points[0][0]-points[1][0])**2+(points[1][1]-points[0][1])**2)**0.5)
+
+    print(points)
 # f3()
-print(reconstruct_points(np.array(distance_matrix)))
+# print(reconstruct_points(np.array(distance_matrix)))
+
+def ff():
+    class MyClass:
+        def __init__(self):
+            self.__private_attribute = "I am private"
+        
+        def get_private_attribute(self):
+            return self.__private_attribute
+
+    obj = MyClass()
+    # print(obj.__private_attribute)  # 会报错 AttributeError
+    print(obj.get_private_attribute())  # 可以通过方法访问
+# ff()

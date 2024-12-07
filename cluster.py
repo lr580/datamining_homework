@@ -1,24 +1,23 @@
 from typing import List
-from disjointSet import DSU, DSU_ele, DSU_avg, getClasses
-from heap import HeapMap
-import copy, utils
+from disjointSet import DSU, DSU_ele, DSU_avg, getClasses # 手写实现的并查集数据结构
+from heap import HeapMap # 手写实现的可删堆数据结构
+import copy
+import utils # 手写辅助函数
 def minCluster(a:List[List[float]], k:int):
     '''最小层次聚类 Hierarchical Clustering: MIN\n
     输入n阶方阵a代表距离矩阵，最终聚成k类 \n
     返回值：1. 长为n的整数数组表示每个点所属的类取值∈[0,k) \n
     2. 长为n-k的二元组数组，第i个元素(u,v)表示在第i步把点u,v相连，其中u,v∈[0,n) \n
-    算法复杂度：O(n^2logn + n^2α) = O(n^2logn) 取排序复杂度，其中 α 是反阿克曼函数；可以考虑用基数排序进一步优化排序'''
+    算法复杂度：O(n^2logn + n^2α) = O(n^2logn) 取排序复杂度，其中 α 是反阿克曼函数，有 α < logn；可以考虑用基数排序进一步优化排序'''
     n = len(a)
     d = [(a[u][v], u, v) for u in range(n) for v in range(u+1,n)] # 对称矩阵只需要三角
     dsu = DSU(n)
     steps = []
     for dis, u, v in sorted(d):
         if dsu.merge(u, v):
-            # print(dis, u+1, v+1)
             steps.append((u, v))
             if len(steps) == n - k:
                 break
-        # else: print('skip', dis, u+1, v+1)
     return getClasses(dsu), steps
 
 def maxCluster(a:List[List[float]], k:int):
@@ -36,7 +35,7 @@ def maxCluster(a:List[List[float]], k:int):
             for i in range(n): # 最多合并 O(n) 次，每次 O(n) 复杂度
                 maxe = max(e[fu][i], e[fv][i])
                 e[fv][i] = e[i][fv] = maxe
-                e[fu][i] = e[i][fu] = 0 # 方便 debug，其实可以不删
+                e[fu][i] = e[i][fu] = 0 # 方便 debug 输出，其实可以不删
             # utils.print2Darray(e)
             dsu.merge(fu, fv)
             steps.append((u, v))
@@ -89,34 +88,6 @@ def avgCluster(a:List[List[float]], k:int):
     # print(cnt)
     return getClasses(dsu), steps
 
-class Cluster:
-    '''辅助类：维护聚类的点数和均值'''
-    def __init__(self, x=None, y=None):
-        if x==None:
-            self.n = 0
-            self.sx = self.sy = 0
-            return
-        self.n = 1
-        self.sx = x
-        self.sy = y
-    def getmean(self):
-        return [self.sx/self.n, self.sy/self.n]
-    @staticmethod
-    def dis(c1, c2):
-        m1, m2 = c1.getmean(), c2.getmean()
-        dist = ((m1[0]-m2[0])**2 + (m1[1]-m2[1])**2)
-        return dist * (2 * (c1.n * c2.n) / (c1.n + c2.n))
-    def __add__(self, other):
-        return Cluster(self.n + other.n, self.sx + other.sx, self.sy + other.sy)
-        
-class ClusterPair:
-    def __init__(self, c1, c2):
-        self.c1 = c1
-        self.c2 = c2
-        self.dist = Cluster.dis(c1, c2)
-    def __lt__(self, other):
-        return self.dist < other.dist
-
 def wardCluster(p:List[List[float]], k:int):
     '''Ward 聚类 Hierarchical Clustering: Ward \n
     输入：(n,2)的数组代表n个欧式平面点 \n
@@ -151,7 +122,6 @@ def wardCluster(p:List[List[float]], k:int):
             dsu.merge(fv, fu)
             for t in remain - {fv}:
                 e.modify(pair(fv, t), dist(fv, t))
-
             steps.append((u, v))
     return getClasses(dsu), steps
 
@@ -180,45 +150,48 @@ def check_correct(a, steps, type_:str, matrix=True):
             return False
     return True
 
-# 测试用例：PPT例子
-testcase = [
-    [0, 0.24, 0.22, 0.37, 0.34, 0.23],
-    [0.24, 0, 0.15, 0.20, 0.14, 0.25],
-    [0.22, 0.15, 0, 0.15, 0.28, 0.11],
-    [0.37, 0.20, 0.15, 0, 0.29, 0.22],
-    [0.34, 0.14, 0.28, 0.29, 0, 0.39],
-    [0.23, 0.25, 0.11, 0.22, 0.39, 0]
-]
-utils.print2Darray(testcase) # 测试用例输出
-clusters, steps = minCluster(testcase, 1)
-assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
-assert check_correct(testcase, steps, 'single')
-print(steps)
-clusters, steps = maxCluster(testcase, 1)
-assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
-print(steps)
-assert check_correct(testcase, steps, 'complete')
-assert check_correct(testcase, steps, 'single') == False
+def testcase1():
+    '''使用PPT例子对聚类进行测试，验证正确性'''
+    # 测试用例：PPT例子
+    testcase = [
+        [0, 0.24, 0.22, 0.37, 0.34, 0.23],
+        [0.24, 0, 0.15, 0.20, 0.14, 0.25],
+        [0.22, 0.15, 0, 0.15, 0.28, 0.11],
+        [0.37, 0.20, 0.15, 0, 0.29, 0.22],
+        [0.34, 0.14, 0.28, 0.29, 0, 0.39],
+        [0.23, 0.25, 0.11, 0.22, 0.39, 0]
+    ]
+    utils.print2Darray(testcase) # 测试用例输出
+    clusters, steps = minCluster(testcase, 1)
+    assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+    assert check_correct(testcase, steps, 'single')
+    print(steps)
+    clusters, steps = maxCluster(testcase, 1)
+    assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+    print(steps)
+    assert check_correct(testcase, steps, 'complete')
+    assert check_correct(testcase, steps, 'single') == False
 
-clusters, steps = avgCluster(testcase, 1)
-assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
-assert check_correct(testcase, steps, 'average')
-print(steps)
+    clusters, steps = avgCluster(testcase, 1)
+    assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+    assert check_correct(testcase, steps, 'average')
+    print(steps)
 
-# 复杂度测试验证 cnt
-'''
-for n in (10,100,1000):
-    a = [[0 for i in range(n)] for j in range(n)]
-    print(n, end=' : ')
-    avgCluster(a, 1)
-'''
-'''实验结果：表明确实大约 n^2 级别的操作次数
-10 : 123
-100 : 16696
-1000 : 1739697'''
+    # 复杂度测试验证 cnt
+    '''
+    for n in (10,100,1000):
+        a = [[0 for i in range(n)] for j in range(n)]
+        print(n, end=' : ')
+        avgCluster(a, 1)
+    '''
+    '''实验结果：表明确实大约 n^2 级别的操作次数
+    10 : 123
+    100 : 16696
+    1000 : 1739697'''
 
-testcase_pointwise = utils.reconstruct_points(testcase).tolist()
-clusters, steps = wardCluster(testcase_pointwise, 1)
-assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
-assert check_correct(testcase_pointwise, steps, 'ward', False)
-print(steps)
+    testcase_pointwise = utils.reconstruct_points(testcase).tolist()
+    clusters, steps = wardCluster(testcase_pointwise, 1)
+    assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+    assert check_correct(testcase_pointwise, steps, 'ward', False)
+    print(steps)
+# testcase1()
