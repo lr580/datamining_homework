@@ -55,6 +55,34 @@ def getClasses(dsu:DSU):
             maps[dsu.findFa(i)] = len(maps)
     return [maps[dsu.fa[i]] for i in range(n)]
 
+class DSU_ele(DSU):
+    '''维护节点元素并查集，组间avg使用'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.ele = [set([i]) for i in range(n)] # 元素集
+        # self.info = copy.deepcopy(a) # 聚合信息集
+        # self.agg = f
+    def mergeop(self, fx, fy):
+        # for i in range(self.n):
+        #     self.info[fy][i] = self.agg(self.info[fx][i], self.info[fy][i])
+        self.ele[fy] |= self.ele[fx]
+        self.ele[fx] = set()
+
+class DSU_avg(DSU_ele):
+    '''维护各点和平均值的并查集，ward使用'''
+    def __init__(self, n, p):
+        super().__init__(n)
+        self.sx = [p[i][0] for i in range(n)] # 当前簇x坐标和
+        self.sy = [p[i][1] for i in range(n)] # 当前簇y坐标和
+    def mergeop(self, fx, fy):
+        super().mergeop(fx, fy)
+        self.sx[fy] += self.sx[fx]
+        self.sy[fy] += self.sy[fx]
+        self.sx[fx] = self.sy[fx] = 0
+    def avg(self, fx): # 求簇的平均值点
+        n = len(self.ele[fx])
+        return self.sx[fx] / n, self.sy[fx] / n
+
 class DSU_max(DSU):
     '''最大聚类并查集'''
     def __init__(self, n, a):
@@ -82,19 +110,6 @@ class DSU_max(DSU):
         print(self.max[x])
         self.fa[x] = res
         return self.fa[x]'''
-    
-class DSU_ele(DSU):
-    '''维护节点元素并查集'''
-    def __init__(self, n):
-        super().__init__(n)
-        self.ele = [set([i]) for i in range(n)] # 元素集
-        # self.info = copy.deepcopy(a) # 聚合信息集
-        # self.agg = f
-    def mergeop(self, fx, fy):
-        # for i in range(self.n):
-        #     self.info[fy][i] = self.agg(self.info[fx][i], self.info[fy][i])
-        self.ele[fy] |= self.ele[fx]
-        self.ele[fx] = set()
 
 class DSU_size:
     '''维护节点元素数、已用边的并查集 \n 暂时没用到这个并查集'''

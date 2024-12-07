@@ -1,5 +1,5 @@
 from typing import List
-from disjointSet import DSU, DSU_max, DSU_ele, getClasses
+from disjointSet import DSU, DSU_ele, DSU_avg, getClasses
 from heap import HeapMap
 import copy, utils
 def minCluster(a:List[List[float]], k:int):
@@ -44,6 +44,9 @@ def maxCluster(a:List[List[float]], k:int):
                 break
     return getClasses(dsu), steps
 
+def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
+    return tuple(sorted([u, v]))
+
 def avgCluster(a:List[List[float]], k:int):
     '''平均层次聚类 Hierarchical Clustering: Group Average \n
     输入、返回值、复杂度描述同 maxCluster() \n 
@@ -58,8 +61,6 @@ def avgCluster(a:List[List[float]], k:int):
             e.add((u, v), (a[u][v], 1, a[u][v]))
     remain = set(i for i in range(n)) # 剩余类
     # cnt = 0 # 调试用，计算复杂度
-    def pair(u,v): # 转换为 HeapMap 的键
-        return tuple(sorted([u, v]))
     while len(remain) > k:
         (u, v), _ = e.getMin()
         fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
@@ -88,12 +89,82 @@ def avgCluster(a:List[List[float]], k:int):
     # print(cnt)
     return getClasses(dsu), steps
 
-def check_correct(a, steps, type_:str):
+class Cluster:
+    '''辅助类：维护聚类的点数和均值'''
+    def __init__(self, x=None, y=None):
+        if x==None:
+            self.n = 0
+            self.sx = self.sy = 0
+            return
+        self.n = 1
+        self.sx = x
+        self.sy = y
+    def getmean(self):
+        return [self.sx/self.n, self.sy/self.n]
+    @staticmethod
+    def dis(c1, c2):
+        m1, m2 = c1.getmean(), c2.getmean()
+        dist = ((m1[0]-m2[0])**2 + (m1[1]-m2[1])**2)
+        return dist * (2 * (c1.n * c2.n) / (c1.n + c2.n))
+    def __add__(self, other):
+        return Cluster(self.n + other.n, self.sx + other.sx, self.sy + other.sy)
+        
+class ClusterPair:
+    def __init__(self, c1, c2):
+        self.c1 = c1
+        self.c2 = c2
+        self.dist = Cluster.dis(c1, c2)
+    def __lt__(self, other):
+        return self.dist < other.dist
+
+def wardCluster(p:List[List[float]], k:int):
+    '''Ward 聚类 Hierarchical Clustering: Ward \n
+    输入：(n,2)的数组代表n个欧式平面点 \n
+    返回值、复杂度描述同 maxCluster() \n 
+    距离公式：两重心的距离的平方乘以点数的调和平均的二倍
+    '''
+    n = len(p)
+    steps = []
+    dsu = DSU_avg(n, p)
+    def dist(fu, fv): # 求两个簇的ward距离
+        m1, m2 = dsu.avg(fu), dsu.avg(fv)
+        n1, n2 = len(dsu.ele[fu]), len(dsu.ele[fv])
+        dis = ((m1[0]-m2[0])**2 + (m1[1]-m2[1])**2)
+        return dis * 2 * n1 * n2 / (n1 + n2)
+    e = HeapMap()
+    for u in range(n):
+        for v in range(u+1, n):
+            e.add((u, v), dist(u, v))
+    remain = set(i for i in range(n))
+    while len(remain) > k:
+        (u, v), dis = e.getMin()
+        fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
+        if fv != fu: # fu 合并到 fv，删除 fu
+            # print(u, v, dis**0.5)
+            remain.remove(fu)
+            for u1 in dsu.ele[fu]:
+                for v1 in dsu.ele[fv]: 
+                    e.erase(pair(u1, v1))
+                for t in remain- {fv}: 
+                    e.erase(pair(u1, t))
+
+            dsu.merge(fv, fu)
+            for t in remain - {fv}:
+                e.modify(pair(fv, t), dist(fv, t))
+
+            steps.append((u, v))
+    return getClasses(dsu), steps
+
+def check_correct(a, steps, type_:str, matrix=True):
     '''将手写代码与库函数对比，以验证正确性 \n
     调库只用来测试正确性，没有用来后续正式使用'''
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import squareform
-    ans = linkage(squareform(a), type_)
+    if matrix:
+        ans = linkage(squareform(a), type_)
+    else:
+        ans = linkage(a, type_)
+        # print(ans)  # 对比 wardCluster 的 u, v, dis**0.5 输出，一样
     n = len(a)
     dsu1, dsu2 = DSU(n), DSU(n*2)
     for i in range(len(steps)):
@@ -145,3 +216,9 @@ for n in (10,100,1000):
 10 : 123
 100 : 16696
 1000 : 1739697'''
+
+testcase_pointwise = utils.reconstruct_points(testcase).tolist()
+clusters, steps = wardCluster(testcase_pointwise, 1)
+assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+assert check_correct(testcase_pointwise, steps, 'ward', False)
+print(steps)
