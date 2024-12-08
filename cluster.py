@@ -3,24 +3,47 @@ from disjointSet import DSU, DSU_ele, DSU_avg, getClasses # 手写实现的并�
 from heap import HeapMap # 手写实现的可删堆数据结构
 import copy
 import utils # 手写辅助函数
-def minCluster(a:List[List[float]], k:int):
+import numpy as np # 加速运算
+
+def minCluster(a, k:int):
     '''最小层次聚类 Hierarchical Clustering: MIN\n
     输入n阶方阵a代表距离矩阵，最终聚成k类 \n
     返回值：1. 长为n的整数数组表示每个点所属的类取值∈[0,k) \n
-    2. 长为n-k的二元组数组，第i个元素(u,v)表示在第i步把点u,v相连，其中u,v∈[0,n) \n
+    2. 长为n-k的二元组数组，第i个元素(u,v,w)表示在第i步把点u,v相连，其中u,v∈[0,n),w是合并前u,v的距离 \n
     算法复杂度：O(n^2logn + n^2α) = O(n^2logn) 取排序复杂度，其中 α 是反阿克曼函数，有 α < logn；可以考虑用基数排序进一步优化排序'''
+    
+
+    # 下面是排序距离部分
+    '''朴素实现 
     n = len(a)
-    d = [(a[u][v], u, v) for u in range(n) for v in range(u+1,n)] # 对称矩阵只需要三角
+    d = [(a[u][v], u, v) for u in range(n) for v in range(u+1,n)] # 对称矩阵只需要三角; # 2.45s
+    d = sorted(d) #11.83s'''
+    #numpy优化上面注释的朴素实现
+    n = a.shape[0]
+    # timer = utils.Timer()
+    ij_pair = np.triu_indices(n, k=1)
+    dtype = [('dis', 'float'), ('u', 'int'), ('v', 'int')]
+    vals = a[ij_pair]
+    d = np.empty(len(vals), dtype=dtype)
+    d['dis'] = vals
+    d['u'] = ij_pair[0]
+    d['v'] = ij_pair[1]
+    # timer() # 构造数组 0.28s
+    d = d[np.argsort(d['dis'])] # 排序: 1.47s
+    # 若：d.sort(order='dis') 则排序：8s
+    # timer()
+
     dsu = DSU(n)
     steps = []
-    for dis, u, v in sorted(d):
+    for dis, u, v in d:
         if dsu.merge(u, v):
-            steps.append((u, v))
+            steps.append((u, v, dis))
             if len(steps) == n - k:
                 break
+
     return getClasses(dsu), steps
 
-def maxCluster(a:List[List[float]], k:int):
+def maxCluster(a, k:int):
     '''最大层次聚类 Hierarchical Clustering: MAX\n
     输入、返回值、复杂度描述同 minCluster() \n 
     注意最多合并 n 次，每次合并 O(n)，故复杂度不变'''
@@ -46,7 +69,7 @@ def maxCluster(a:List[List[float]], k:int):
 def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
     return tuple(sorted([u, v]))
 
-def avgCluster(a:List[List[float]], k:int):
+def avgCluster(a, k:int):
     '''平均层次聚类 Hierarchical Clustering: Group Average \n
     输入、返回值、复杂度描述同 maxCluster() \n 
     复杂度分析：每次合并时，会修改 O(n) 个点对，永久删除 O(n) 个点对，且单次增删改是 logn 复杂度，故总复杂度为 O(n^2logn)'''
@@ -88,7 +111,7 @@ def avgCluster(a:List[List[float]], k:int):
     # print(cnt)
     return getClasses(dsu), steps
 
-def wardCluster(p:List[List[float]], k:int):
+def wardCluster(p, k:int):
     '''Ward 聚类 Hierarchical Clustering: Ward \n
     输入：(n,2)的数组代表n个欧式平面点 \n
     返回值、复杂度描述同 maxCluster() \n 
@@ -111,7 +134,7 @@ def wardCluster(p:List[List[float]], k:int):
         (u, v), dis = e.getMin()
         fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
         if fv != fu: # fu 合并到 fv，删除 fu
-            # print(u, v, dis**0.5)
+            # print(u, v, dis**0.5) # 调试用，验证正确性
             remain.remove(fu)
             for u1 in dsu.ele[fu]:
                 for v1 in dsu.ele[fv]: 
@@ -125,15 +148,43 @@ def wardCluster(p:List[List[float]], k:int):
             steps.append((u, v))
     return getClasses(dsu), steps
 
+# 计时装饰器，可以取消，主要用于调试
+@utils.print_exec_time
+def cluster(p:List[List[float]], type_:str, k:int=1):
+    '''层次聚类 \n
+    输入：p(n,2)的数组代表n个欧式平面点 \n
+    k 代表最终要聚成几个类 \n
+    type_ 代表聚类方式，可选：'single', 'complete', 'average', 'ward' \n
+    分别代表最小、最大、组平均、ward 层次聚类 \n
+    返回值：1. 长为n的整数数组表示每个点所属的类取值∈[0,k) \n
+    2. 长为n-k的二元组数组，第i个元素(u,v,w)表示在第i步把点u,v相连，其中u,v∈[0,n),w是合并前u,v的距离 \n
+    时间复杂度 O(n^2logn)，空间复杂度 O(n^2)
+    '''
+    if type_ == 'single' or type_ == 'min':
+        # a = utils.DisMatrix(p) # 15s
+        a = utils.getDisMatrix(p) # 15.8s
+        return minCluster(a, k)
+    elif type_ == 'complete' or type_ == 'max':
+        a = utils.getDisMatrix(p)
+        return maxCluster(a, k)
+    elif type_ == 'average' or type_ == 'avg':
+        a = utils.getDisMatrix(p)
+        return avgCluster(a, k)
+    else: # ward
+        return wardCluster(p, k)
+    
+
 def check_correct(a, steps, type_:str, matrix=True):
     '''将手写代码与库函数对比，以验证正确性 \n
-    调库只用来测试正确性，没有用来后续正式使用'''
+    调库只用来测试正确性，没有用来后续正式使用 \n 
+    该测试代码针对 79f8cd 版本前的代码，对修改后不适用'''
     from scipy.cluster.hierarchy import linkage
     from scipy.spatial.distance import squareform
     if matrix:
         ans = linkage(squareform(a), type_)
     else:
         ans = linkage(a, type_)
+
         # print(ans)  # 对比 wardCluster 的 u, v, dis**0.5 输出，一样
     n = len(a)
     dsu1, dsu2 = DSU(n), DSU(n*2)
@@ -150,17 +201,22 @@ def check_correct(a, steps, type_:str, matrix=True):
             return False
     return True
 
+def check_correct2(a, steps, type_:str):
+    '''考虑到边权相等时合并顺序任意，这里对点集距离和steps距离进行对比'''
+    from scipy.cluster.hierarchy import linkage
+    ans = linkage(a, type_)
+    for i in range(len(steps)):
+        w1 = steps[i][-1]
+        w2 = ans[i][2]
+        if abs(w1-w2) > 1e-6:
+            return False
+    return True
+
 def testcase1():
-    '''使用PPT例子对聚类进行测试，验证正确性'''
+    '''使用PPT例子对聚类进行测试，验证正确性 \n
+    该测试代码针对 79f8cd 版本前的代码，对修改后不适用'''
     # 测试用例：PPT例子
-    testcase = [
-        [0, 0.24, 0.22, 0.37, 0.34, 0.23],
-        [0.24, 0, 0.15, 0.20, 0.14, 0.25],
-        [0.22, 0.15, 0, 0.15, 0.28, 0.11],
-        [0.37, 0.20, 0.15, 0, 0.29, 0.22],
-        [0.34, 0.14, 0.28, 0.29, 0, 0.39],
-        [0.23, 0.25, 0.11, 0.22, 0.39, 0]
-    ]
+    testcase = utils.getPPTsampleMatrix()
     utils.print2Darray(testcase) # 测试用例输出
     clusters, steps = minCluster(testcase, 1)
     assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
@@ -195,3 +251,15 @@ def testcase1():
     assert check_correct(testcase_pointwise, steps, 'ward', False)
     print(steps)
 # testcase1()
+
+def testcase2(data):
+    '''直接使用作业数据测试，并验证正确性和效率优化'''
+    for type_ in ('single', 'complete', 'average', 'ward'):
+        clusters, steps = cluster(data, type_, 1)
+        assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+        assert check_correct2(data, steps, type_)
+        break
+# testcase2(utils.readCSV())
+utils.chcp()
+testcase2(utils.reconstruct_points(utils.getPPTsampleMatrix()))
+testcase2(utils.readCSV())
