@@ -1,6 +1,5 @@
 # 个人手写实现的可删堆
 # 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
-# 因为不给用第三方库，所以没用 sortedcontainer 的 sortedlist
 from heapq import heappush, heappop
 class Heap:
     '''以O(logn)均摊实现可以删除元素的最小堆 (小根堆)'''
@@ -47,6 +46,7 @@ class HeapMap:
         assert k not in self.k2v
         self.k2v[k] = v
         self.heap.insert((v, k))
+        print(len(self.k2v), len(self.heap.a), len(self.heap.b))
     def erase(self, k):
         if k in self.k2v:
             v = self.k2v[k]
@@ -58,4 +58,11 @@ class HeapMap:
     def getMin(self):
         '''取最小值的键值对k,v'''
         return tuple(reversed(self.heap.top())) 
-        
+
+from sortedcontainers import SortedList     
+def TreeMap:
+    '''红黑树基础上，假设键值对是 (k,v)，按值v排序，添加功能：\n
+    根据 k 寻找 v；实现对其的维护，键是矩阵(n,n)'''
+    def __init__(self, n):
+        self.n = n
+        self.k2v = 

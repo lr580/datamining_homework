@@ -21,7 +21,7 @@ class DSU:
         fx, fy = self.findFa(x), self.findFa(y)
         if fx == fy:
             return False
-        fx, fy = sorted([fx, fy], reverse=True) # 最小做根，方便debug输出信息
+        fy, fx = sorted([fx, fy]) # 最小做根，方便debug输出信息
         self.mergeop(fx, fy) # 钩子函数，给子类用
         self.fa[fx] = fy
         return True

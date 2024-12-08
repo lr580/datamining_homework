@@ -5,6 +5,7 @@ from functools import wraps
 import sys
 import io
 import numpy as np # 主要用于优化，不然太慢了
+import psutil
 
 def print2Darray(a, extraLine = True):
     '''调试用，输出二维浮点数组a[n][m]，带表头'''
@@ -30,7 +31,7 @@ def readCSV(filepath = '8gau.txt'):
                 p.append([float(x) for x in line.split()])
             except:
                 break
-    return p
+    return np.array(p)
 
 def print_exec_time(func):
     '''装饰器，统计执行函数的用时'''
@@ -54,8 +55,17 @@ def Timer():
         print('%.2fs' % interval)
     return elapsed_time
 
+def MemoryTracker():
+    '''获取当前内存使用量(MB)'''
+    initial_memory = psutil.Process().memory_info().rss / (1024 * 1024)
+    def track_memory():
+        current_memory = psutil.Process().memory_info().rss / (1024 * 1024) 
+        memory_change = current_memory - initial_memory
+        print(f"{memory_change:.2f}MB")
+    return track_memory
+
 def chcp():
-    '''切换中文编码'''
+    '''切换中文编码，已废置'''
     # subprocess.run('chcp 65001', shell=True)
     # 设置标准输出为 UTF-8 编码
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
@@ -144,4 +154,3 @@ def discretization(a):
         if x not in res:
             res[x] = len(res)
     return [res[x] for x in a]
-
