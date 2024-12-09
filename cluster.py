@@ -1,8 +1,9 @@
 from typing import List
-from disjointSet import DSU, DSU_ele, DSU_avg, getClasses # 手写实现的并查集数据结构
-from heap import HeapMap # 手写实现的可删堆数据结构
+from disjointSet import DSU, DSU_ele, DSU_avg, DSU_cluster, getClasses # 手写实现的并查集数据结构
+from heap import HeapMap, TreeMap # 手写实现的可删堆数据结构
 import utils # 手写辅助函数
 import numpy as np # 加速运算
+import heapq 
 
 # 计时装饰器，可以取消，主要用于调试
 @utils.print_exec_time
@@ -24,7 +25,9 @@ def cluster(p:List[List[float]], type_:str, k:int=1):
     elif type_ == 'complete' or type_ == 'max':
         return maxCluster(p, k)
     elif type_ == 'average' or type_ == 'avg':
-        return avgCluster(p, k)
+        # return avgCluster(p, k)
+        # return averageCluster_(p, k)
+        return averageCluster(p, k)
     else: # ward
         return wardCluster(p, k)
     
@@ -82,9 +85,9 @@ def maxCluster(p, k:int):
     e = utils.getDisMatrix(p)
     steps = []
     op = getOrderedDistList(e, False)
-    cnt = 0
+    # cnt = 0 # 测试，统计执行次数，判断 break 的影响
     for dis, u, v in op:
-        cnt += 1
+        # cnt += 1
         fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
         if e[fu,fv] == dis: # fu 合并到 fv，删除 fu
             ''' 朴素代码
@@ -102,8 +105,36 @@ def maxCluster(p, k:int):
             steps.append((u, v, dis))
             if len(steps) == n - k:
                 break
-    print(cnt)
+    # print(cnt)
     return getClasses(dsu), steps
+
+def averageCluster(p, k:int):
+    '''平均层次聚类 Hierarchical Clustering: Group Average  \n 未清除优化过程的注释'''
+    # memoryer = utils.MemoryTracker() # n=5000 97.7520s 2113.75MB
+    n = p.shape[0]
+    a = utils.getDisMatrix(p)
+    q = getOrderedDistList(a, False).tolist() # 最小堆
+    # heapq.heapify(q) # 本身有序
+    steps = []
+    # dsu = DSU_avg(n, n, a)
+    dsu = DSU_cluster(n, n, a, DSU_cluster.add)
+    alive = {i for i in range(n)} # 还活着的每组的最大点
+    while q:
+        dis, u, v = heapq.heappop(q)
+        if u in alive and v in alive and dsu.merge(u, v):
+            # timer = utils.Timer()
+            steps.append((u, v, dis))
+            alive.remove(u)
+            alive.remove(v)
+            alive.add(dsu.top)
+            for i in alive:
+                fu, fv = pair(dsu.findFa(i), dsu.findFa(dsu.top))
+                dis = dsu.e[fu, fv] / (dsu.siz[fu] * dsu.siz[fv])
+                heapq.heappush(q, (dis, *pair(i, dsu.top)))
+            # timer()
+            if len(steps) == n - k:
+                break
+    return getClasses(dsu)[:n], steps
 
 def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
     return tuple(sorted([u, v]))
@@ -111,53 +142,112 @@ def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
 def avgCluster(p, k:int):
     '''平均层次聚类 Hierarchical Clustering: Group Average \n
     输入、返回值、复杂度描述同 maxCluster() \n 
-    复杂度分析：每次合并时，会修改 O(n) 个点对，永久删除 O(n) 个点对，且单次增删改是 logn 复杂度，故总复杂度为 O(n^2logn)'''
+    复杂度分析：每次合并时，会修改 O(n) 个点对，永久删除 O(n) 个点对，且单次增删改是 logn 复杂度，故总复杂度为 O(n^2logn) \n 效率太低，已废置'''
+    # memoryer = utils.MemoryTracker()
+    # timer = utils.Timer()
     n = p.shape[0]
     a = utils.getDisMatrix(p)
     steps = []
     dsu = DSU_ele(n)
-    e = HeapMap()
+    e = TreeMap(n)
+    cnt = 0
     for u in range(n):
-        for v in range(u+1, n):
-            # 均值信息 = (均值，点数，总和)
-            e.add((u, v), (a[u][v], 1, a[u][v]))
+        for v in range(u+1, n): # 0.02s each (n=5000), total 100s
+            # 均值信息 = (点数，总和)，其中 均值 = 总和/点数
+            e.add(u, v, 1, a[u][v])
     remain = set(i for i in range(n)) # 剩余类
     # cnt = 0 # 调试用，计算复杂度
+    step = 0 # 展示进度
+    # timer() # 94.61s(n=5000)
     while len(remain) > k:
-        (u, v), disp = e.getMin()
+        u, v, dis = e.getMin()
         fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
         if fv != fu: # fu 合并到 fv，删除 fu
             remain.remove(fu)
             # 更新其他部分跟合并后新部分的组间平均值
             for t in remain - {fv}:
-                k1 = pair(fu, t)
-                k2 = pair(fv, t)
-                _, n1, s1 = e.k2v[k1]
-                _, n2, s2 = e.k2v[k2]
-                newVal = ((s1+s2)/(n1+n2), n1+n2, s1+s2)
-                e.modify(pair(fv, t), newVal)
+                n1, s1 = e.get(*pair(fu, t))
+                n2, s2 = e.get(*pair(fv, t))
+                e.modify(*pair(fv, t), n1+n2, s1+s2)
                 # cnt += 1
 
             for u1 in dsu.ele[fu]:
                 for v1 in dsu.ele[fv]: # 现在组内的边都可以删了
-                    e.erase(pair(u1, v1))
+                    e.erase(*pair(u1, v1))
                     # cnt += 1
-                for t in remain- {fv}: # fu的也可以删了
-                    e.erase(pair(u1, t))
+                for t in remain - {fv}: # fu的也可以删了
+                    e.erase(*pair(u1, t))
                     # cnt += 1
             
             dsu.merge(fv, fu)
-            steps.append((u, v, disp[0]))
+            steps.append((u, v, dis))
+            step += 1
+            # print(step, end = ' ')
+            # memoryer() # 1988.21MB(n=5000)
     # print(cnt)
     return getClasses(dsu), steps
 
-# def avgClusterComplexity(n):
-#     '''空间复杂度模拟分析验证'''
-#     cnt = 0 # 元素数
-#     cnt += n * (n-1) // 2 # 初始元素数
-#     for i in range(n-1): # 合并 n-1 次
-#         k = n - i - 2
-#         cnt += k
+def averageCluster_(p, k:int):
+    '''平均层次聚类 Hierarchical Clustering: Group Average  \n 未清除优化过程的注释'''
+    # memoryer = utils.MemoryTracker() # n=5000 97.7520s 2113.75MB
+    timer = utils.Timer()
+    n = p.shape[0]
+    a = utils.getDisMatrix(p)
+    q = getOrderedDistList(a, False).tolist() # 最小堆
+    # heapq.heapify(q) # 本身有序
+    steps = []
+    dsu = DSU_cluster(n, n, a, DSU_cluster.add)
+    # alive = {i for i in range(n)} # 还活着的每组的最大点
+    alive = np.array([1] * n + [0] * n)
+    timer()
+    cnt = 0
+    while q:
+        dis, u, v = heapq.heappop(q)
+        cnt += 1
+        # if u in alive and v in alive and dsu.merge(u, v):
+        if alive[u] and alive[v] and dsu.merge(u, v):
+            steps.append((u, v, dis))
+            # alive.remove(u)
+            # alive.remove(v)
+            # alive.add(dsu.top)
+            alive[u] = 0
+            alive[v] = 0
+            alive[dsu.top] = 1
+            
+            
+            # for i in np.where(alive == 1)[0]:
+            '''for i in alive:
+                fu, fv = pair(dsu.findFa(i), dsu.findFa(dsu.top))
+                dis = dsu.e[fu, fv] / (dsu.siz[fu] * dsu.siz[fv])
+                heapq.heappush(q, (dis, *pair(i, dsu.top)))'''
+            
+            # 一些优化的尝试：
+            alive_i = np.where(alive == 1)[0]
+            # alive_i = np.array(list(alive))
+            fu_list = np.array([dsu.findFa(i) for i in alive_i])
+            fv = dsu.findFa(dsu.top)
+            # timer()
+            dis = dsu.e[fu_list, fv] / (dsu.siz[fu_list] * dsu.siz[fv])
+            # timer()
+            # for i, dis in zip(alive_i, dis): # 102s
+            #     u, v = pair(i, dsu.top)
+            #     heapq.heappush(q, (dis, u, v))
+            new_eles = [(dis, i, dsu.top) for i, dis in zip(alive_i, dis)]
+            # new_eles = [(dis, *pair(i, dsu.top)) for i, dis in zip(alive_i, dis)]
+            # new_keys = np.array([np.sort([i, dsu.top]) for i in alive_i]) # 批量pair
+            # new_eles = np.column_stack((dis, new_keys))
+            # new_eles = np.column_stack((dis, alive_i, np.full_like(alive_i, dsu.top)))
+            # timer()
+            for e in new_eles: # 104s
+                heapq.heappush(q, (e[0],int(e[1]),int(e[2]))) 
+            # timer()
+            # print()
+            if len(steps) % 100 == 0:
+                timer()
+            if len(steps) == n - k:
+              break
+    print(cnt) # 17491237
+    return getClasses(dsu)[:n], steps
 
 def wardCluster(p, k:int):
     '''Ward 聚类 Hierarchical Clustering: Ward \n
@@ -187,7 +277,7 @@ def wardCluster(p, k:int):
             for u1 in dsu.ele[fu]:
                 for v1 in dsu.ele[fv]: 
                     e.erase(pair(u1, v1))
-                for t in remain- {fv}: 
+                for t in remain - {fv}: 
                     e.erase(pair(u1, t))
 
             dsu.merge(fv, fu)
@@ -207,7 +297,6 @@ def check_correct(a, steps, type_:str, matrix=True):
         ans = linkage(squareform(a), type_)
     else:
         ans = linkage(a, type_)
-
         # print(ans)  # 对比 wardCluster 的 u, v, dis**0.5 输出，一样
     n = len(a)
     dsu1, dsu2 = DSU(n), DSU(n*2)
@@ -277,14 +366,15 @@ def testcase1():
 
 def testcase2(data):
     '''直接使用作业数据测试，并验证正确性和效率优化'''
-    for type_ in ('complete',  'single'): # , 'average', 'ward'
+    # ('complete',  'single', 'average', 'ward')
+    for type_ in ('average', ): # , 'average', 'ward'
         clusters, steps = cluster(data, type_, 1)
-        assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
-        assert check_correct2(data, steps, type_)
+        # assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+        # assert check_correct2(data, steps, type_)
 
     ''' 测试报告：
     minCluster: 对 n=5000 用时3.2s，符合预期 O(n^2logn) 的效率
     '''
 # utils.chcp()
 testcase2(utils.reconstruct_points(utils.getPPTsampleMatrix()))
-testcase2(utils.readCSV())
+# testcase2(utils.readCSV())

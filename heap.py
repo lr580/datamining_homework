@@ -1,5 +1,6 @@
 # 个人手写实现的可删堆
 # 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
+import numpy as np
 from heapq import heappush, heappop
 class Heap:
     '''以O(logn)均摊实现可以删除元素的最小堆 (小根堆)'''
@@ -62,7 +63,48 @@ class HeapMap:
 from sortedcontainers import SortedList     
 class TreeMap:
     '''红黑树基础上，假设键值对是 (k,v)，按值v排序，添加功能：\n
-    根据 k 寻找 v；实现对其的维护，键是矩阵(n,n)'''
+    根据 k 寻找 v；实现对其的维护，键是矩阵(n,n) \n
+    值是 (n, s) 表示总点数和总边权 \n
+    专为avg层次聚类设计'''
     def __init__(self, n):
         self.n = n
-        # self.k2v = 
+        self.map = SortedList()
+        self.k2n = np.zeros((n,n), dtype=np.int16)
+        self.k2s = np.zeros((n,n), dtype=np.float64)
+    def getDis(self,u,v):
+        '''给定u<v，得到u,v两组的avg层次聚类平均边权'''
+        return self.k2s[u,v] / self.k2n[u,v]
+    def add(self, u, v, n, s):
+        self.k2n[u,v] = n
+        self.k2s[u,v] = s
+        self.map.add((self.getDis(u, v), u, v))
+    def erase(self, u, v):
+        if self.k2n[u,v] > 0:
+            self.map.remove((self.getDis(u, v), u, v))
+            self.k2n[u,v] = 0
+            self.k2s[u,v] = 0
+    def modify(self, u, v, n, s):
+        self.erase(u, v)
+        self.add(u, v, n, s)
+    def getMin(self):
+        dis, u, v = self.map[0]
+        return u, v, dis
+    def get(self, u, v):
+        '''返回 (n, s)'''
+        return self.k2n[u,v], self.k2s[u,v]
+    
+def TreeMapEfficiencyTest():
+    import utils
+    import random
+    timer = utils.Timer()
+    n = 5000
+    # a = SortedList()
+    b = []
+    for i in range(n):
+        for j in range(i+1, n):
+            # a.add(random.random()) # 1.17s(n=1000)
+            # a.add((random.random(), i, j)) # 1.81s(n=1000) # 69.79s
+            # heappush(b, random.random()) # 0.08s(n=1000)
+            heappush(b, (random.random(), i, j)) #0.15s(n=1000) # 3.55s
+    timer()
+# TreeMapEfficiencyTest()

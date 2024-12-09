@@ -2,6 +2,7 @@
 # 均摊 O(α)≈O(1) 复杂度的单次操作；复杂度分析参考：https://oi-wiki.org/ds/dsu-complexity
 # 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
 import copy
+import numpy as np
 
 class DSU:
     '''朴素并查集'''
@@ -27,26 +28,6 @@ class DSU:
         return True
     # def fas(self, x, y):
     #     return self.findFa(x), self.findFa(y)
-    
-class DSU_rank(DSU):
-    '''朴素并查集，按秩合并'''
-    def __init__(self, n):
-        super().__init__(n)
-        self.rank = [1] * n # 元素数
-    def mergeop(self, fx, fy):
-        '''钩子函数，额外信息合并，给定两个根节点fx->fy'''
-        self.rank[fy] += 1
-    def merge(self, x, y):
-        '''若两节点x,y不在同一根，合并并返回True，否则返回False'''
-        fx, fy = self.findFa(x), self.findFa(y)
-        if fx == fy:
-            return False
-        # 总是把 fx 合并到 fy 去
-        if self.rank[fx] > self.rank[fy]: 
-            fx, fy = fy, fx
-        self.mergeop(fx, fy) # 钩子函数，给子类用
-        self.fa[fx] = fy
-        return True
         
 # 代码正确性检验如下：检测链接 https://leetcode.cn/problems/number-of-islands
 '''
@@ -105,6 +86,56 @@ class DSU_avg(DSU_ele):
     def avg(self, fx): # 求簇的平均值点
         n = len(self.ele[fx])
         return self.sx[fx] / n, self.sy[fx] / n
+    
+class DSU_cluster(DSU):
+    '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集'''
+    def __init__(self, n, m, a, f):
+        '''f(a,fu,fv)是函数，当fu加入fv时，使用f函数聚合a数据'''
+        self.n = n
+        self.fa = np.arange(n+m) # self.fa = [i for i in range(n+m)] # 根节点
+        self.siz = np.ones(n) # self.siz = [1 for i in range(n)] # 当前类元素数
+        self.top = n-1 # 当前最大点
+        self.e = a
+        self.f = f
+    def mergeop(self, fx, fy):
+        print(fx, fy, self.top)
+        self.f(self.e, fx, fy)
+        self.top += 1
+        self.fa[self.top] = fy
+        self.siz[fy] += self.siz[fx]
+        # self.siz[fx] = 0
+    @staticmethod
+    def add(a, fx, fy):
+        '''求和聚合距离矩阵'''
+        a[fy, :] += a[fx, :]
+        a[:, fy] += a[:, fx]
+        # a[fx, :] = a[:, fx] = 0
+        
+# 理由未知，使用 virtual 和 avg 替代 cluster 失败
+class DSU_virtual(DSU):
+    '''每次合并将一个虚拟节点加入合并后的类(假设最多合并m次)，并维护大小'''
+    def __init__(self, n, m):
+        self.n = n
+        self.top = n-1 # 当前最大点
+        self.fa = np.arange(n+m) # self.fa = [i for i in range(n+m)] # 根节点
+        self.siz = np.ones(n) # self.siz = [1 for i in range(n)] # 当前类元素数
+    def merge(self, fx, fy):
+        print(fx, fy, self.top)
+        self.top += 1
+        self.fa[self.top] = fy
+        self.siz[fy] += self.siz[fx]
+        # self.siz[fx] = 0
+        
+class DSU_avg(DSU_virtual):
+    '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集'''
+    def __init__(self, n, m, a):
+        DSU_virtual.__init__(self, n, m)
+        self.e = a
+    def mergeop(self, fx, fy):
+        DSU_virtual.mergeop(fx, fy)
+        self.e[fy, :] += self.e[fx, :]
+        self.e[:, fy] += self.e[:, fx]
+        
 
 
 # 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
@@ -157,5 +188,25 @@ class DSU_size:
         self.size[fy] = 0
         self.used[fx] += self.used[fy]
         self.used[fy] = 0
+        self.fa[fx] = fy
+        return True
+    
+class DSU_rank(DSU):
+    '''朴素并查集，按秩合并，没有采用'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.rank = [1] * n # 元素数
+    def mergeop(self, fx, fy):
+        '''钩子函数，额外信息合并，给定两个根节点fx->fy'''
+        self.rank[fy] += 1
+    def merge(self, x, y):
+        '''若两节点x,y不在同一根，合并并返回True，否则返回False'''
+        fx, fy = self.findFa(x), self.findFa(y)
+        if fx == fy:
+            return False
+        # 总是把 fx 合并到 fy 去
+        if self.rank[fx] > self.rank[fy]: 
+            fx, fy = fy, fx
+        self.mergeop(fx, fy) # 钩子函数，给子类用
         self.fa[fx] = fy
         return True

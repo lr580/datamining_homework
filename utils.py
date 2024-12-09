@@ -5,7 +5,6 @@ from functools import wraps
 import sys
 import io
 import numpy as np # 主要用于优化，不然太慢了
-import psutil
 
 def print2Darray(a, extraLine = True):
     '''调试用，输出二维浮点数组a[n][m]，带表头'''
@@ -23,7 +22,8 @@ def print2Darray(a, extraLine = True):
         print()
 
 def readCSV(filepath = '8gau.txt'):
-    '''读取作业要求的指定格式数据集，返回 [5000][2] 的点集列表'''
+    '''读取作业要求的指定格式数据集，返回 [5000][2] 的点集列表 \n
+    数据来源 https://www.cse.cuhk.edu.hk/~taoyf/course/cmsc5724/data/8gau.txt '''
     p = []
     with open(filepath) as f:
         for line in f.readlines():
@@ -52,16 +52,17 @@ def Timer():
         current_time = time.time()
         interval = current_time - last_time[0]  # 计算时间间隔
         last_time[0] = current_time  # 更新上一次调用的时间
-        print('%.2fs' % interval)
+        print('%.4fs' % interval)
     return elapsed_time
 
 def MemoryTracker():
     '''获取当前内存使用量(MB)'''
+    import psutil
     initial_memory = psutil.Process().memory_info().rss / (1024 * 1024)
     def track_memory():
         current_memory = psutil.Process().memory_info().rss / (1024 * 1024) 
         memory_change = current_memory - initial_memory
-        print(f"{memory_change:.2f}MB")
+        print(f"{memory_change:.3f}MB")
     return track_memory
 
 def chcp():
@@ -154,3 +155,48 @@ def discretization(a):
         if x not in res:
             res[x] = len(res)
     return [res[x] for x in a]
+
+# 基数排序，一种 O(nc) 的排序算法，其中 c 较低，可以优于 O(nlogn) 
+# 参考：https://oi-wiki.org/basic/radix-sort/
+# 个人实现 https://github.com/lr580/algorithm_template
+def radixSort(a, maxbit = 40, eachbit = 8):
+    # 复杂度 O(nc), n=len(a), c=log2(max(a)) / eachbit
+    mask=(1<<eachbit) - 1 
+    x=a[::]
+    n=len(a)
+    b=[0]*n
+    cnt = []
+    for i in range(0, maxbit, eachbit):
+        cnt = [0 for i in range(mask+1)] # 计数排序清零
+        for x in a:
+            cnt[(x>>i)&mask] += 1
+        s = 0 # 计数排序变式
+        for j in range(mask+1):
+            s += cnt[j]
+            cnt[j] = s - cnt[j]
+        for x in a:
+            idx=(x>>i)&mask
+            b[cnt[idx]]=x
+            cnt[idx]+=1
+        a,b=b,a
+        for i in range(n-1): # 剪枝
+            if a[i]>a[i+1]: break
+        else: continue
+        break
+    return a
+
+# 效率对比 -> 证明了该排序比原生 O(nlogn) 排序更优
+# from random import randint
+# import time
+# a = [randint(0, 2**40-1) for i in range(int(8e6))]
+# b = a[::]
+# import numpy as np
+# c = np.array(a)
+# t1 = time.perf_counter()
+# radixSort(a)
+# t2 = time.perf_counter()
+# b.sort()
+# t3 = time.perf_counter()
+# c.sort()
+# t4 = time.perf_counter()
+# print(t2-t1, t3-t2, t4-t3) # 2.28s < 5.02s, 0.55s
