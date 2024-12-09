@@ -63,11 +63,14 @@ def minCluster(p, k:int):
     n = p.shape[0]
     dsu = DSU(n)
     steps = []
+    cnt = 0
     for dis, u, v in getOrderedDistList(p):
+        cnt += 1
         if dsu.merge(u, v):
             steps.append((u, v, dis))
             if len(steps) == n - k:
                 break
+    print(cnt)
     return getClasses(dsu), steps
 
 def maxCluster(p, k:int):
@@ -79,7 +82,9 @@ def maxCluster(p, k:int):
     e = utils.getDisMatrix(p)
     steps = []
     op = getOrderedDistList(e, False)
+    cnt = 0
     for dis, u, v in op:
+        cnt += 1
         fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
         if e[fu,fv] == dis: # fu 合并到 fv，删除 fu
             ''' 朴素代码
@@ -97,6 +102,7 @@ def maxCluster(p, k:int):
             steps.append((u, v, dis))
             if len(steps) == n - k:
                 break
+    print(cnt)
     return getClasses(dsu), steps
 
 def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
@@ -145,13 +151,13 @@ def avgCluster(p, k:int):
     # print(cnt)
     return getClasses(dsu), steps
 
-def avgClusterComplexity(n):
-    '''空间复杂度模拟分析验证'''
-    cnt = 0 # 元素数
-    cnt += n * (n-1) // 2 # 初始元素数
-    for i in range(n-1): # 合并 n-1 次
-        k = n - i - 2
-        cnt += k
+# def avgClusterComplexity(n):
+#     '''空间复杂度模拟分析验证'''
+#     cnt = 0 # 元素数
+#     cnt += n * (n-1) // 2 # 初始元素数
+#     for i in range(n-1): # 合并 n-1 次
+#         k = n - i - 2
+#         cnt += k
 
 def wardCluster(p, k:int):
     '''Ward 聚类 Hierarchical Clustering: Ward \n
@@ -271,7 +277,7 @@ def testcase1():
 
 def testcase2(data):
     '''直接使用作业数据测试，并验证正确性和效率优化'''
-    for type_ in ('single',  'average'): # , , 'ward'
+    for type_ in ('complete',  'single'): # , 'average', 'ward'
         clusters, steps = cluster(data, type_, 1)
         assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
         assert check_correct2(data, steps, type_)

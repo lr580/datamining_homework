@@ -60,9 +60,9 @@ class HeapMap:
         return tuple(reversed(self.heap.top())) 
 
 from sortedcontainers import SortedList     
-def TreeMap:
+class TreeMap:
     '''红黑树基础上，假设键值对是 (k,v)，按值v排序，添加功能：\n
     根据 k 寻找 v；实现对其的维护，键是矩阵(n,n)'''
     def __init__(self, n):
         self.n = n
-        self.k2v = 
+        # self.k2v = 

@@ -9,7 +9,7 @@ class DSU:
         self.fa = [i for i in range(n)] # 根节点
         self.n = n
     def findFa(self, x):
-        '''求x节点的根并返回'''
+        '''求x节点的根并返回；比递归和先求再压缩都快'''
         while self.fa[x] != x:
             self.fa[x] = self.fa[self.fa[x]]
             x = self.fa[x] # 路径压缩
@@ -22,6 +22,28 @@ class DSU:
         if fx == fy:
             return False
         fy, fx = sorted([fx, fy]) # 最小做根，方便debug输出信息
+        self.mergeop(fx, fy) # 钩子函数，给子类用
+        self.fa[fx] = fy
+        return True
+    # def fas(self, x, y):
+    #     return self.findFa(x), self.findFa(y)
+    
+class DSU_rank(DSU):
+    '''朴素并查集，按秩合并'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.rank = [1] * n # 元素数
+    def mergeop(self, fx, fy):
+        '''钩子函数，额外信息合并，给定两个根节点fx->fy'''
+        self.rank[fy] += 1
+    def merge(self, x, y):
+        '''若两节点x,y不在同一根，合并并返回True，否则返回False'''
+        fx, fy = self.findFa(x), self.findFa(y)
+        if fx == fy:
+            return False
+        # 总是把 fx 合并到 fy 去
+        if self.rank[fx] > self.rank[fy]: 
+            fx, fy = fy, fx
         self.mergeop(fx, fy) # 钩子函数，给子类用
         self.fa[fx] = fy
         return True
