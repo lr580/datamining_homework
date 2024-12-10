@@ -1,14 +1,14 @@
-// #include <bits/stdc++.h>
-// using namespace std;
-// struct DSU {
-//     vector<int> fa;
-//     DSU(int n) {
-//         fa.resize(n);
-//         for (int i = 0; i < n; i++) fa[i] = i;
+#include <bits/stdc++.h>
+using namespace std;
+struct DSU {
+    vector<int> fa;
+    DSU(int n) {
+        fa.resize(n);
+        iota(fa.begin(), fa.end(), 0); // fa[i]=i
 
-//     }
-// };
-// signed main(int argc, char*argv[]) {
+    }
+};
+signed main(int argc, char*argv[]) {
 
-//     return 0;
-// }
+    return 0;
+}

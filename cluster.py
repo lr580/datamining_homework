@@ -1,5 +1,5 @@
 from typing import List
-from disjointSet import DSU, DSU_ele, DSU_avg, DSU_cluster, getClasses # 手写实现的并查集数据结构
+from disjointSet import DSU, DSU_ele, DSU_avg, DSU_average, DSU_cluster, DSU_ward, getClasses # 手写实现的并查集数据结构
 from heap import HeapMap, TreeMap # 手写实现的可删堆数据结构
 import utils # 手写辅助函数
 import numpy as np # 加速运算
@@ -66,14 +66,11 @@ def minCluster(p, k:int):
     n = p.shape[0]
     dsu = DSU(n)
     steps = []
-    cnt = 0
     for dis, u, v in getOrderedDistList(p):
-        cnt += 1
         if dsu.merge(u, v):
             steps.append((u, v, dis))
             if len(steps) == n - k:
                 break
-    print(cnt)
     return getClasses(dsu), steps
 
 def maxCluster(p, k:int):
@@ -84,8 +81,9 @@ def maxCluster(p, k:int):
     dsu = DSU(n)
     e = utils.getDisMatrix(p)
     steps = []
-    op = getOrderedDistList(e, False)
+    op = getOrderedDistList(e, False).tolist()
     # cnt = 0 # 测试，统计执行次数，判断 break 的影响
+    # timer = utils.Timer()
     for dis, u, v in op:
         # cnt += 1
         fv, fu = sorted([dsu.findFa(u), dsu.findFa(v)])
@@ -103,6 +101,11 @@ def maxCluster(p, k:int):
             # utils.print2Darray(e)
             dsu.merge(fu, fv)
             steps.append((u, v, dis))
+            # if len(steps) % 100 == 99 or len(steps) >= 4900: timer() # 测试，统计执行时间分布
+            # 4600 是经过多次调试效果较好的一个值，可以根据数据和电脑自行再调整
+            if len(steps) == 4600: # 仿照 average/wardCluster优化
+                aliveP = [i for i in range(n) if dsu.findFa(i) == i]
+                op = getOrderedDistList(p[aliveP]).tolist() # 从 24 秒优化到了 9秒，记得要tolist
             if len(steps) == n - k:
                 break
     # print(cnt)
@@ -114,15 +117,14 @@ def averageCluster(p, k:int):
     n = p.shape[0]
     a = utils.getDisMatrix(p)
     q = getOrderedDistList(a, False).tolist() # 最小堆
-    # heapq.heapify(q) # 本身有序
     steps = []
-    # dsu = DSU_avg(n, n, a)
-    dsu = DSU_cluster(n, n, a, DSU_cluster.add)
+    dsu = DSU_average(n, n, a)
+    # dsu = DSU_cluster(n, n, a, DSU_cluster.add)
     alive = {i for i in range(n)} # 还活着的每组的最大点
+    q_resetter = HeapReconstructor(q, alive, dsu, 'avg')
     while q:
         dis, u, v = heapq.heappop(q)
         if u in alive and v in alive and dsu.merge(u, v):
-            # timer = utils.Timer()
             steps.append((u, v, dis))
             alive.remove(u)
             alive.remove(v)
@@ -131,9 +133,10 @@ def averageCluster(p, k:int):
                 fu, fv = pair(dsu.findFa(i), dsu.findFa(dsu.top))
                 dis = dsu.e[fu, fv] / (dsu.siz[fu] * dsu.siz[fv])
                 heapq.heappush(q, (dis, *pair(i, dsu.top)))
-            # timer()
+            q_resetter.try_reset()
             if len(steps) == n - k:
                 break
+    # memoryer()
     return getClasses(dsu)[:n], steps
 
 def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
@@ -142,7 +145,8 @@ def pair(u,v): # 辅助函数，转换为 HeapMap 的键，即排序 u,v
 def avgCluster(p, k:int):
     '''平均层次聚类 Hierarchical Clustering: Group Average \n
     输入、返回值、复杂度描述同 maxCluster() \n 
-    复杂度分析：每次合并时，会修改 O(n) 个点对，永久删除 O(n) 个点对，且单次增删改是 logn 复杂度，故总复杂度为 O(n^2logn) \n 效率太低，已废置'''
+    复杂度分析：每次合并时，会修改 O(n) 个点对，永久删除 O(n) 个点对，且单次增删改是 logn 复杂度，故总复杂度为 O(n^2logn) \n
+    因效率过低已废置，重构见 averageCluster()'''
     # memoryer = utils.MemoryTracker()
     # timer = utils.Timer()
     n = p.shape[0]
@@ -188,7 +192,9 @@ def avgCluster(p, k:int):
     return getClasses(dsu), steps
 
 def averageCluster_(p, k:int):
-    '''平均层次聚类 Hierarchical Clustering: Group Average  \n 未清除优化过程的注释'''
+    '''平均层次聚类 Hierarchical Clustering: Group Average  \n 
+    未清除优化过程的注释 \n 
+    因效率过低已废置，重构见 averageCluster()'''
     # memoryer = utils.MemoryTracker() # n=5000 97.7520s 2113.75MB
     timer = utils.Timer()
     n = p.shape[0]
@@ -249,12 +255,110 @@ def averageCluster_(p, k:int):
     print(cnt) # 17491237
     return getClasses(dsu)[:n], steps
 
+class HeapReconstructor:
+    '''根据观察结果：>=4000时效率开始下降 \n
+    因此考虑对需要删除元素大幅增加时，直接重构堆 \n
+    观察验证对比代码：放在 cluster for/while 里 \n
+    if len(steps) % 100 == 99 or len(steps) >= 4900: \n
+        print(len(steps), len(q), len(alive)) \n
+        timer()'''
+    def __init__(self, q:List, alive, dsu, type_:str, SLEEP_LEN=100):
+        self.q = q
+        self.last_q_len = len(q) # 用于优化，当q长度下降时，进行q重构
+        self.reconstructed = False # 是否已重构
+        self.SLEEP_LEN = SLEEP_LEN # 间隔多少次检测激活尝试重构一次，根据数据大小和电脑性能可以调整(避免因为偶然长度下降提前重构)
+        self.try_cnt = 0 # 当前尝试重构次数
+        self.type_ = type_ # 'ward' 或 'avg'
+        self.alive = alive
+        self.dsu = dsu
+        # self.timer = utils.Timer()
+    def try_reset(self):
+        '''尝试重构，每100次激活一次，激活后若满足重构标准进行重构，如果已经重构则不再重构'''
+        if self.reconstructed:
+            return
+        self.try_cnt += 1
+        if self.try_cnt % self.SLEEP_LEN == 0:
+            # self.timer()
+            if len(self.q) < self.last_q_len:
+                self.reconstructed = True
+                self.reset(self.alive, self.dsu)
+            self.last_q_len = len(self.q)
+    def reset(self, alive, dsu):
+        '''重构堆'''
+        # timer = utils.Timer()
+        # print(f'堆重构：重构前元素{len(self.q)}, 剩余类：{len(alive)}') # 24330693, ࣺ600
+        self.q.clear()
+        nodes = list(alive)
+        for i in range(len(nodes)):
+            fu = dsu.findFa(nodes[i])
+            for j in range(i+1, len(nodes)):
+                fv = dsu.findFa(nodes[j])
+                assert fu != fv
+                if self.type_ == 'ward':
+                    m1x = dsu.sx[fu] / dsu.siz[fu]
+                    m1y = dsu.sy[fu] / dsu.siz[fu]
+                    m2x = dsu.sx[fv] / dsu.siz[fv]
+                    m2y = dsu.sy[fv] / dsu.siz[fv]
+                    dis = ((m1x-m2x)**2 + (m1y-m2y)**2)
+                    dis = dis * 2 * dsu.siz[fu] * dsu.siz[fv] / (dsu.siz[fu] + dsu.siz[fv])
+                    self.q.append((dis, nodes[i], nodes[j]))
+                elif self.type_ == 'avg':
+                    dis = dsu.e[fu, fv] / (dsu.siz[fu] * dsu.siz[fv])
+                    self.q.append((dis, nodes[i], nodes[j]))
+        heapq.heapify(self.q)
+        # print(f'重构完毕，堆元素：{len(self.q)}') # 179700
+        # timer() # 1.72s
 def wardCluster(p, k:int):
+    '''Ward 聚类 Hierarchical Clustering: Ward \n
+    距离公式：两重心的距离的平方乘以点数的调和平均的二倍'''
+    n = p.shape[0]
+    steps = []
+    dsu = DSU_ward(n, n, p)
+    q = getOrderedDistList(utils.getDisMatrixSquare(p), False) # 直接用平方计算，避免频繁的开方，提高速度
+    q = q.tolist()
+    # q = getOrderedDistList(p).tolist()
+    alive = {i for i in range(n)}
+    q_resetter = HeapReconstructor(q, alive, dsu, 'ward')
+    # timer = utils.Timer()
+    while q:
+        dis, u, v = heapq.heappop(q)
+        if u in alive and v in alive and dsu.merge(u, v):
+            steps.append((u, v, dis**0.5))
+            # print(u, v, dis**0.5)
+            alive.remove(u)
+            alive.remove(v)
+            alive.add(dsu.top)
+            ''' 优化前的朴素代码：
+            for i in alive:
+                fu, fv = dsu.findFa(i), dsu.findFa(dsu.top) # 147.2 / pair  # 166.8s
+                m1, m2 = dsu.avg(fu), dsu.avg(fv)
+                n1, n2 = dsu.siz[fu], dsu.siz[fv]
+                dis = ((m1[0]-m2[0])**2 + (m1[1]-m2[1])**2)
+                dis = dis * 2 * n1 * n2 / (n1 + n2)
+                heapq.heappush(q, (dis, i, dsu.top))'''
+            # 优化后，代码速度快一倍
+            fv = dsu.findFa(dsu.top)
+            fu_list = np.array([dsu.findFa(i) for i in alive])
+            m1x = dsu.sx[fu_list] / dsu.siz[fu_list]
+            m1y = dsu.sy[fu_list] / dsu.siz[fu_list]
+            m2x = dsu.sx[fv] / dsu.siz[fv]
+            m2y = dsu.sy[fv] / dsu.siz[fv]
+            dis = ((m1x-m2x)**2 + (m1y-m2y)**2)
+            dis = dis * 2 * dsu.siz[fu_list] * dsu.siz[fv] / (dsu.siz[fu_list] + dsu.siz[fv])
+            u_list = list(alive)
+            for i in range(len(alive)):
+                heapq.heappush(q, (dis[i], u_list[i], dsu.top))
+            q_resetter.try_reset()
+            if len(steps) == n - k:
+                break
+    return getClasses(dsu)[:n], steps
+
+def wardCluster_(p, k:int):
     '''Ward 聚类 Hierarchical Clustering: Ward \n
     输入：(n,2)的数组代表n个欧式平面点 \n
     返回值、复杂度描述同 maxCluster() \n 
-    距离公式：两重心的距离的平方乘以点数的调和平均的二倍
-    '''
+    距离公式：两重心的距离的平方乘以点数的调和平均的二倍 \n 
+    因效率过低已废置，重构见 wardCluster()'''
     n = len(p)
     steps = []
     dsu = DSU_avg(n, p)
@@ -317,6 +421,7 @@ def check_correct2(a, steps, type_:str):
     '''考虑到边权相等时合并顺序任意，这里对点集距离和steps距离进行对比'''
     from scipy.cluster.hierarchy import linkage
     ans = linkage(a, type_)
+    # print(ans)
     for i in range(len(steps)):
         w1 = steps[i][-1]
         w2 = ans[i][2]
@@ -366,15 +471,14 @@ def testcase1():
 
 def testcase2(data):
     '''直接使用作业数据测试，并验证正确性和效率优化'''
-    # ('complete',  'single', 'average', 'ward')
-    for type_ in ('average', ): # , 'average', 'ward'
+    for type_ in ('single', 'complete','average', 'ward'):
         clusters, steps = cluster(data, type_, 1)
-        # assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
-        # assert check_correct2(data, steps, type_)
+        assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
+        assert check_correct2(data, steps, type_)
 
     ''' 测试报告：
     minCluster: 对 n=5000 用时3.2s，符合预期 O(n^2logn) 的效率
     '''
 # utils.chcp()
 testcase2(utils.reconstruct_points(utils.getPPTsampleMatrix()))
-# testcase2(utils.readCSV())
+testcase2(utils.readCSV())

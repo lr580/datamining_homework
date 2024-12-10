@@ -130,6 +130,11 @@ def getDisMatrix(p):
     a = np.array(p)
     return np.linalg.norm(a[:, np.newaxis] - a[np.newaxis, :], axis=2) # 0.6036
 
+def getDisMatrixSquare(p):
+    '''根据点集p[n][2]生成距离矩阵，使用 numpy 优化，返回距离的平方'''
+    a = np.array(p)
+    # 计算平方距离
+    return np.sum((a[:, np.newaxis] - a[np.newaxis, :]) ** 2, axis=2)
 # data = readCSV()
 # getDisMatrix(data) 
 
