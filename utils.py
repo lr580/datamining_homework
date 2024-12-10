@@ -1,10 +1,10 @@
 # 手写实现的各种通用辅助函数
 import time
 from functools import wraps
-# import subprocess
 import sys
 import io
 import numpy as np # 主要用于优化，不然太慢了
+# import subprocess
 
 def print2Darray(a, extraLine = True):
     '''调试用，输出二维浮点数组a[n][m]，带表头'''
@@ -65,6 +65,20 @@ def MemoryTracker():
         print(f"{memory_change:.3f}MB")
     return track_memory
 
+# @print_exec_time
+def getDisMatrix(p):
+    '''根据点集p[n][2]生成距离矩阵，使用 numpy 优化'''
+    # return [[(p[i][0] - p[j][0]) ** 2 + (p[i][1] - p[j][1]) ** 2 for j in range(len(p))] for i in range(len(p))] # 4.6598s
+    a = np.array(p)
+    return np.linalg.norm(a[:, np.newaxis] - a[np.newaxis, :], axis=2) # 0.6036
+
+def getDisMatrixSquare(p):
+    '''根据点集p[n][2]生成距离矩阵，使用 numpy 优化，返回距离的平方'''
+    a = np.array(p)
+    return np.sum((a[:, np.newaxis] - a[np.newaxis, :]) ** 2, axis=2)
+# data = readCSV()
+# getDisMatrix(data) 
+
 def chcp():
     '''切换中文编码，已废置'''
     # subprocess.run('chcp 65001', shell=True)
@@ -102,7 +116,8 @@ class DisMatrixRow:
         return self.dm._distance(self.i, j)
 
 class DisMatrix:
-    '''给定欧氏距离a[n][2]点集，使用[][]运算符求任意下标(i,j)距离 \n
+    '''已废置，在优化过的代码中不需要使用该类 \n
+    给定欧氏距离a[n][2]点集，使用[][]运算符求任意下标(i,j)距离 \n
     一种模拟出n阶距离矩阵，但实际空间为 O(n) 的压缩矩阵存储 \n
     主要是为了兼容课堂 PPT 的例子测试，使输入可以是点集也可以是距离矩阵 \n
     使用示例：\n
@@ -122,21 +137,6 @@ class DisMatrix:
 
 # dm = DisMatrix([[0,0], [3,4]])
 # print(dm[0][1])
-
-# @print_exec_time
-def getDisMatrix(p):
-    '''根据点集p[n][2]生成距离矩阵，使用 numpy 优化'''
-    # return [[(p[i][0] - p[j][0]) ** 2 + (p[i][1] - p[j][1]) ** 2 for j in range(len(p))] for i in range(len(p))] # 4.6598s
-    a = np.array(p)
-    return np.linalg.norm(a[:, np.newaxis] - a[np.newaxis, :], axis=2) # 0.6036
-
-def getDisMatrixSquare(p):
-    '''根据点集p[n][2]生成距离矩阵，使用 numpy 优化，返回距离的平方'''
-    a = np.array(p)
-    # 计算平方距离
-    return np.sum((a[:, np.newaxis] - a[np.newaxis, :]) ** 2, axis=2)
-# data = readCSV()
-# getDisMatrix(data) 
 
 def getPPTsampleMatrix():
     '''返回PPT课件58页的距离矩阵样例'''

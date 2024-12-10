@@ -1,4 +1,5 @@
 # 个人手写实现的可删堆
+# 目前优化过的层次聚类没使用 heap.py，该代码文件是我在实现层次聚类过程的尝试
 # 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
 import numpy as np
 from heapq import heappush, heappop
@@ -94,6 +95,7 @@ class TreeMap:
         return self.k2n[u,v], self.k2s[u,v]
     
 def TreeMapEfficiencyTest():
+    '''测试效率'''
     import utils
     import random
     timer = utils.Timer()

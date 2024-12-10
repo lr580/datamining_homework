@@ -5,7 +5,7 @@ import copy
 import numpy as np
 
 class DSU:
-    '''朴素并查集'''
+    '''朴素并查集，可证明平均单次操作复杂度为 O(α)≈O(1)，α 是反阿克曼函数'''
     def __init__(self, n):
         self.fa = [i for i in range(n)] # 根节点
         self.n = n
@@ -22,7 +22,7 @@ class DSU:
         fx, fy = self.findFa(x), self.findFa(y)
         if fx == fy:
             return False
-        fy, fx = sorted([fx, fy]) # 最小做根，方便debug输出信息
+        fy, fx = sorted([fx, fy]) # 最小做根，避免 DSU_virtual 子类的越界
         self.mergeop(fx, fy) # 钩子函数，给子类用
         self.fa[fx] = fy
         return True
@@ -58,37 +58,52 @@ def getClasses(dsu:DSU):
         if dsu.findFa(i) == i:
             maps[dsu.findFa(i)] = len(maps)
     return [maps[dsu.fa[i]] for i in range(n)]
-
-class DSU_ele(DSU):
-    '''维护节点元素并查集，组间avg使用'''
-    def __init__(self, n):
-        super().__init__(n)
-        self.ele = [set([i]) for i in range(n)] # 元素集
-        # self.info = copy.deepcopy(a) # 聚合信息集
-        # self.agg = f
+   
+class DSU_virtual(DSU):
+    '''每次合并将一个虚拟节点加入合并后的类(假设最多合并m次)，并维护大小'''
+    def __init__(self, n, m):
+        self.n = n
+        self.top = n-1 
+        ''' self.top: 当前最大点，作用是与cluster代码的堆结合，用top来判断当前类，从而起到vis数组的作用来排除堆里在同一个类的点的判断；这是因为：一旦 u,v 合并，那么在堆里，用原本 u,v 的数据都是旧数据，合并后的新距离数据才是有效的，通过 top 来反映当前堆的元素是新的还是过时的，实验表明，这样的设计大大优化时空效率 (参见 cluster.py 的 averageCluster 和 wardCluster)'''
+        self.fa = np.arange(n+m) # self.fa = [i for i in range(n+m)] # 根节点
+        self.siz = np.ones(n) # self.siz = [1 for i in range(n)] # 当前类元素数
     def mergeop(self, fx, fy):
-        # for i in range(self.n):
-        #     self.info[fy][i] = self.agg(self.info[fx][i], self.info[fy][i])
-        self.ele[fy] |= self.ele[fx]
-        self.ele[fx] = set()
-
-class DSU_avg(DSU_ele):
-    '''维护各点和平均值的并查集，ward使用'''
-    def __init__(self, n, p):
-        super().__init__(n)
-        self.sx = [p[i][0] for i in range(n)] # 当前簇x坐标和
-        self.sy = [p[i][1] for i in range(n)] # 当前簇y坐标和
+        self.top += 1
+        self.fa[self.top] = fy
+        self.siz[fy] += self.siz[fx]
+        # self.siz[fx] = 0
+        
+class DSU_average(DSU_virtual):
+    '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集'''
+    def __init__(self, n, m, a):
+        super().__init__(n, m)
+        self.e = a
+    def mergeop(self, fx, fy):
+        super().mergeop(fx, fy)
+        self.e[fy, :] += self.e[fx, :]
+        self.e[:, fy] += self.e[:, fx]
+        # self.e[fx, :] = self.e[:, fx] = 0
+        
+class DSU_ward(DSU_virtual):
+    ''' DSU_avg + DSU_virtual，参见二者文档'''
+    def __init__(self, n, m, p):
+        super().__init__(n, m)
+        self.sx = np.copy(p[:, 0])  # 当前簇 x 坐标和
+        self.sy = np.copy(p[:, 1])  # 当前簇 y 坐标和
     def mergeop(self, fx, fy):
         super().mergeop(fx, fy)
         self.sx[fy] += self.sx[fx]
         self.sy[fy] += self.sy[fx]
-        self.sx[fx] = self.sy[fx] = 0
+        # self.sx[fx] = self.sy[fx] = 0
     def avg(self, fx): # 求簇的平均值点
-        n = len(self.ele[fx])
+        n = self.siz[fx]
         return self.sx[fx] / n, self.sy[fx] / n
-    
+
+
+
+# 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
 class DSU_cluster(DSU):
-    '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集'''
+    '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集 \n 已经被拆分优化，以便于代码复用'''
     def __init__(self, n, m, a, f):
         '''f(a,fu,fv)是函数，当fu加入fv时，使用f函数聚合a数据'''
         self.n = n
@@ -109,48 +124,34 @@ class DSU_cluster(DSU):
         a[fy, :] += a[fx, :]
         a[:, fy] += a[:, fx]
         # a[fx, :] = a[:, fx] = 0
-        
-# 理由未知，使用 virtual 和 avg 替代 cluster 失败
-class DSU_virtual(DSU):
-    '''每次合并将一个虚拟节点加入合并后的类(假设最多合并m次)，并维护大小'''
-    def __init__(self, n, m):
-        self.n = n
-        self.top = n-1 # 当前最大点
-        self.fa = np.arange(n+m) # self.fa = [i for i in range(n+m)] # 根节点
-        self.siz = np.ones(n) # self.siz = [1 for i in range(n)] # 当前类元素数
+
+class DSU_ele(DSU):
+    '''维护节点元素并查集，组间avg使用 \n 目前已废置，有更优化的实现'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.ele = [set([i]) for i in range(n)] # 元素集
+        # self.info = copy.deepcopy(a) # 聚合信息集
+        # self.agg = f
     def mergeop(self, fx, fy):
-        self.top += 1
-        self.fa[self.top] = fy
-        self.siz[fy] += self.siz[fx]
-        # self.siz[fx] = 0
-        
-class DSU_average(DSU_virtual):
-    '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集'''
-    def __init__(self, n, m, a):
-        super().__init__(n, m)
-        self.e = a
-    def mergeop(self, fx, fy):
-        super().mergeop(fx, fy)
-        self.e[fy, :] += self.e[fx, :]
-        self.e[:, fy] += self.e[:, fx]
-        
-class DSU_ward(DSU_virtual):
-    ''' DSU_avg + DSU_virtual，参见二者文档'''
-    def __init__(self, n, m, p):
-        super().__init__(n, m)
-        self.sx = np.copy(p[:, 0])  # 当前簇 x 坐标和
-        self.sy = np.copy(p[:, 1])  # 当前簇 y 坐标和
+        # for i in range(self.n):
+        #     self.info[fy][i] = self.agg(self.info[fx][i], self.info[fy][i])
+        self.ele[fy] |= self.ele[fx]
+        self.ele[fx] = set()
+
+class DSU_avg(DSU_ele):
+    '''维护各点和平均值的并查集，ward使用 \n 目前已废置，有更优化的实现'''
+    def __init__(self, n, p):
+        super().__init__(n)
+        self.sx = [p[i][0] for i in range(n)] # 当前簇x坐标和
+        self.sy = [p[i][1] for i in range(n)] # 当前簇y坐标和
     def mergeop(self, fx, fy):
         super().mergeop(fx, fy)
         self.sx[fy] += self.sx[fx]
         self.sy[fy] += self.sy[fx]
-        # self.sx[fx] = self.sy[fx] = 0
+        self.sx[fx] = self.sy[fx] = 0
     def avg(self, fx): # 求簇的平均值点
-        n = self.siz[fx]
+        n = len(self.ele[fx])
         return self.sx[fx] / n, self.sy[fx] / n
-
-
-# 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
 
 class DSU_max(DSU):
     '''最大聚类并查集'''
