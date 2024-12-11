@@ -99,7 +99,65 @@ class DSU_ward(DSU_virtual):
         n = self.siz[fx]
         return self.sx[fx] / n, self.sy[fx] / n
 
-
+class DSU_hard(DSU):
+    '''每次合并后强制更新全体fa数组'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.ele = [set([i]) for i in range(n)] # 元素集
+    def mergeop(self, fx, fy):
+        self.ele[fy].update(self.ele[fx])
+        for x in self.ele[fx]:
+            self.fa[x] = fy # self.findFa(x)
+        self.ele[fx].clear() # 节省内存
+    
+class DSU_SSE(DSU):
+    '''复杂度良好实时计算SSE的并查集 \n
+    公式(参见高等工程数学)：(x-μ)^2=x^2-2xμ+Nμ^2=x^2-Nμ^2 \n
+    也可以用 DSU_hard 做子类，就不额外维护一个 siz 参见其他上文代码'''
+    def __init__(self, n, p):
+        super().__init__(n)
+        self.sx = np.copy(p[:, 0])  # 当前簇 x 坐标和
+        self.sy = np.copy(p[:, 1])  # 当前簇 y 坐标和
+        self.sx2 = p[:, 0] ** 2 # 当前簇 x 坐标平方和
+        self.sy2 = p[:, 1] ** 2 # 当前簇 y 坐标平方和
+        self.siz = np.ones(n)
+        self.se = np.zeros(n)
+        self.sse = 0.
+    def avg(self, x): #x=fx，求中心
+        n = self.siz[x]
+        return self.sx[x] / n, self.sy[x] / n
+    def variance(self, u): # 求并保存当前类x=fx的方差 (x-μ)^2
+        ax, ay = self.avg(u)
+        vx = self.sx2[u] - self.siz[u] * ax ** 2
+        vy = self.sy2[u] - self.siz[u] * ay ** 2
+        self.se[u] = vx+vy
+        return self.se[u]
+    def mergeop(self, fx, fy):
+        super().mergeop(fx, fy)
+        self.sse -= self.se[fx]
+        self.sse -= self.se[fy]
+        self.sx[fy] += self.sx[fx]
+        self.sy[fy] += self.sy[fx]
+        self.sx2[fy] += self.sx2[fx]
+        self.sy2[fy] += self.sy2[fx]
+        self.siz[fy] += self.siz[fx]
+        self.sse += self.variance(fy)
+''' 测试用例：
+dsu = DSU_SSE(4, np.array([[1,2],[2,3],[5,6],[6,7]]))
+print(dsu.sse) # 0
+dsu.merge(0,1)
+print(dsu.sse) # 1
+dsu.merge(2,3)
+print(dsu.sse) # 2
+dsu.merge(0,2)
+print(dsu.sse) # 34
+# 与答案对比
+import numpy as np
+from sklearn.cluster import KMeans
+data = np.array([[1, 2], [2, 3], [5, 6], [6, 7]])
+kmeans = KMeans(n_clusters=1, random_state=0).fit(data)
+print(kmeans.inertia_) # 34 (其他同理，1是1类，n_clusters=2可以输出2)
+'''
 
 # 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
 class DSU_cluster(DSU):

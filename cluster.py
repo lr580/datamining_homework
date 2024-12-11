@@ -1,9 +1,10 @@
 from typing import List # 代码函数参数提示
-from disjointSet import DSU, DSU_average, DSU_ward, getClasses # 手写实现的并查集数据结构
+from disjointSet import DSU, DSU_average, DSU_ward, getClasses, DSU_hard # 手写实现的并查集数据结构
 import utils # 手写辅助函数
 import numpy as np # 加速运算
 import heapq # 优先级队列(最小堆)
 
+ALL_TYPES = ('single', 'complete','average', 'ward') 
 # 手写的计时装饰器，可以取消，主要用于调试
 @utils.print_exec_time
 def cluster(p:List[List[float]], type_:str, k:int=1):
@@ -246,8 +247,25 @@ def wardCluster(p, k:int):
                 break
     return getClasses(dsu)[:n], steps
 
+def ClusterFromStepsBuilder(n, steps, k=1,continous=True):
+    '''对n个点，根据完全聚类(聚成1类)的步骤steps，构造一个聚成k类的步骤 \n
+    使用生成器结构，方便一步一步地得到聚成n, n-1, ..., k+1, k 类结果 \n
+    每次 yield 长为n的数组，表示每个点属于哪一类\n
+    若 continous=True，则分类连续；单次 yield 复杂度 O(α+n)=O(n) \n
+    否则分类值可能离散(但均摊复杂度更低) 均摊更快'''
+    dsu = DSU_hard(n)
+    for i in range(n-k):
+        u, v, _ = steps[i]
+        dsu.merge(u, v)
+        yield getClasses(dsu) if continous else dsu.fa
+# 测试代码
+# p=utils.reconstruct_points(utils.getPPTsampleMatrix())
+# _,steps=cluster(p, 'single', 1)
+# builder=ClusterFromStepsBuilder(6,steps)
+# for clusters in builder:
+#     print(clusters)
 
-# 以下是测试代码，并未在正式代码中使用
+# 以下是测试正确性的测试用例代码，并未在正式代码中使用
 def check_correct2(a, steps, type_:str):
     '''考虑到边权相等时合并顺序任意，这里对点集距离和steps距离进行对比 \n
     将手写代码与库函数对比，以验证正确性 \n
@@ -270,14 +288,17 @@ def testcase2(data):
     maxCluster: 用时10.8s \n
     averageCluster: 用时26.5s \n
     wardCluster: 用时14.0s'''
-    for type_ in ('single', 'complete','average', 'ward'):
+    for type_ in ALL_TYPES:
         clusters, steps = cluster(data, type_, 1)
         assert len(set(clusters)) == 1 and next(iter(clusters)) == 0
         assert check_correct2(data, steps, type_)
         # utils.print2Darray(steps)
-# utils.chcp()
-testcase2(utils.reconstruct_points(utils.getPPTsampleMatrix())) # 有损重构，跟课堂例子不完全一致
-testcase2(utils.readCSV())
+        # 保存下来预处理，方便调试；也是作为结果输出展示
+        # with open(f'steps_{type_}.txt', 'w') as f:
+        #     f.write(str(steps))
+# utils.chcp() # 若中文输出乱码，执行这个
+# testcase2(utils.reconstruct_points(utils.getPPTsampleMatrix())) # 有损重构，跟课堂例子不完全一致
+# testcase2(utils.readCSV())
 
 
 # 往下是废置代码
