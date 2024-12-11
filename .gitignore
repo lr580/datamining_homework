@@ -2,4 +2,4 @@ __pycache__/
 *.exe
 .vscode/
 *.txt
-*.png % temporaly
+*.png
