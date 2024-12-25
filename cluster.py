@@ -265,6 +265,14 @@ def ClusterFromStepsBuilder(n, steps, k=1,continous=True):
 # for clusters in builder:
 #     print(clusters)
 
+def ClusterFromSteps(n, steps, k=1,):
+    '''对n个点，根据完全聚类(聚成1类)的步骤steps，聚类成k类，直接返回结果labels'''
+    dsu = DSU(n)
+    for i in range(n-k):
+        u, v, _ = steps[i]
+        dsu.merge(u, v)
+    return getClasses(dsu)
+
 # 以下是测试正确性的测试用例代码，并未在正式代码中使用
 def check_correct2(a, steps, type_:str):
     '''考虑到边权相等时合并顺序任意，这里对点集距离和steps距离进行对比 \n

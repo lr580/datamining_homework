@@ -57,7 +57,7 @@ def getClasses(dsu:DSU):
     for i in range(n):
         if dsu.findFa(i) == i:
             maps[dsu.findFa(i)] = len(maps)
-    return [maps[dsu.fa[i]] for i in range(n)]
+    return np.array([maps[dsu.fa[i]] for i in range(n)])
    
 class DSU_virtual(DSU):
     '''每次合并将一个虚拟节点加入合并后的类(假设最多合并m次)，并维护大小'''
@@ -104,11 +104,13 @@ class DSU_hard(DSU):
     def __init__(self, n):
         super().__init__(n)
         self.ele = [set([i]) for i in range(n)] # 元素集
+        self.num = n # 簇个数
     def mergeop(self, fx, fy):
         self.ele[fy].update(self.ele[fx])
         for x in self.ele[fx]:
             self.fa[x] = fy # self.findFa(x)
         self.ele[fx].clear() # 节省内存
+        self.num -= 1
     
 class DSU_SSE(DSU):
     '''复杂度良好实时计算SSE的并查集 \n

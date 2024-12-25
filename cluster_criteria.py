@@ -5,7 +5,7 @@ import utils # 手写辅助函数
 import matplotlib.pyplot as plt 
 import numpy as np
 # @utils.print_exec_time # 0.02s
-def calcSSE(n, steps, p):
+def calcSSEs(n, steps, p):
     '''给定聚类过程steps和点集p，计算聚成k∈[1,n]类各自的SSE，返回0-indexed的SSE列表 \n 复杂度 O(nα)≈O(n)'''
     dsu = disjointSet.DSU_SSE(n, p)
     sse = [0] * n
@@ -15,146 +15,151 @@ def calcSSE(n, steps, p):
         sse[-(i+2)] = dsu.sse
     return sse
 
+# @utils.print_exec_time
+def calcSilhouette(dis, labels):
+    '''给定距离矩阵dis和每个店所属的labels数组，求轮廓系数，复杂度 O(n^2) \n 
+    表现性能：n=5000,2.37s 与标准解法处于同一复杂度'''
+    n = len(labels)
+    unique_labels = np.unique(labels)
+    count_labels = np.bincount(labels)
+    silhouette = np.zeros(n)
+    for i in range(n):
+        label_i = labels[i]
+        if count_labels[label_i] == 1:
+            silhouette[i] = 0
+            continue
+        a_i = np.sum(dis[i, labels == label_i]) / (count_labels[label_i] - 1)  # 除掉自己
+        b_i = np.inf
+        for label_j in unique_labels:
+            if label_j != label_i:
+                b_i = min(b_i, np.mean(dis[i, labels == label_j]))
+        
+        silhouette[i] = (b_i - a_i) / max(a_i, b_i)
+    # print(silhouette)
+    return np.mean(silhouette)
+
+def calcSilhouettes(n, steps, p, calcLim=25):
+    '''给定聚类过程steps和点集p，计算聚成k∈[1,n]类各自的SSE，返回0-indexed的轮廓系数列表，calcLim 是最多多少类时计算轮廓系数 \n
+    计算各点的轮廓系数Silhouette Coefficient的平均
+    '''
+    silhouette = [0] * n
+    dsu = disjointSet.DSU_hard(n)
+    distance_matrix = utils.getDisMatrix(p)
+    for i in range(n - 1):
+        u, v, _ = steps[i]
+        dsu.merge(u, v)
+        if 1<dsu.num<=calcLim:
+            # 做 4 个图，各 25 次计算，理论最快需要 40s
+            labels = disjointSet.getClasses(dsu)
+            silhouette[-(i+2)] = calcSilhouette(distance_matrix, labels)
+    return silhouette
+
 def plotLine(seq, type_, metric, logScale=False):
     '''绘制折线图给定序列为seq，序列名字为type_，指标名字为metric，是否对y轴取对数logScale'''
-    plt.plot(np.arange(1, len(seq) + 1), seq, marker='o')
+    plt.plot(np.arange(2, len(seq) + 2), seq, marker='o')
     if logScale:
         plt.yscale('log')
     plt.title(f'{metric} {type_}')
     plt.xlabel('Number of Clusters')
     plt.ylabel(f'{metric}')
     plt.grid()
+    
+def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
+    '''绘制双Y轴折线图给定两个序列为y1,y2，x轴为x，两个序列名字为y1name,y2name，图标题为type_'''
+    ax1.set_title(f'{type_} Cluster') 
+    ax1.set_xlabel('Number of Clusters')
+    c1, c2 = 'lightcoral', 'steelblue' # 绘图颜色(teal, orange)
+    
+    ax1.plot(x, y1, marker='o', label=y1name, color=c1)
+    ax1.set_ylabel(y1name, color=c1)
+    ax1.tick_params(axis='y', labelcolor=c1)
+    
+    ax2 = ax1.twinx()
+    ax2.plot(x, y2, marker='o', label=y2name, color=c2)
+    ax2.set_ylabel(y2name, color=c2)
+    ax2.tick_params(axis='y', labelcolor=c2)
+    # ax1.legend(loc='upper left')
+    ax1.legend(loc='upper right')
+    ax2.legend(loc='upper right', bbox_to_anchor=(1, 0.86))
+    ax1.grid()
 
-def calcSilhouette(n, steps, p):
-    '''给定聚类过程steps和点集p，计算聚成k∈[1,n]类各自的SSE，返回0-indexed的轮廓系数列表 \n
-    计算各点的轮廓系数Silhouette Coefficient的平均
-    '''
-    from sklearn.metrics import silhouette_score
-    silhouette = [0] * n
-    dsu = disjointSet.DSU_hard(n)
-    for i in range(n - 1):
-        u, v, _ = steps[i]
-        dsu.merge(u, v)
-        if abs(n-i)<=26:
-            silhouette[-(i+2)] = silhouette_score(p, disjointSet.getClasses(dsu))
-    return silhouette
-
+# @utils.print_exec_time
 def plotLines(metric):
-    '''绘图展示四种聚类的指标(metric)可取SSE和silhouette'''
+    '''绘图展示四种聚类的指标(metric)可取SSE和silhouette和both'''
     p = utils.readCSV()
     fig, axs = plt.subplots(2, 2, figsize=(8, 6))
+    if metric == 'both':
+        axs = axs.flatten()  # 将子图数组扁平化，方便索引
+    plt.suptitle('SSE and Silhouette Coefficient of Clustering')
     for i, type_ in enumerate(cluster.ALL_TYPES):
         with open(f'steps_{type_}.txt', 'r') as f:
             steps = eval(f.read())
-        if metric == 'SSE':
-            seq = calcSSE(p.shape[0], steps, p)
-        elif metric == 'silhouette':
-            seq = calcSilhouette(p.shape[0], steps, p)
         plt.subplot(2,2,i+1)
-        plotLine(seq[:25], type_, 'SSE')
+        if metric == 'SSE':
+            seq = calcSSEs(p.shape[0], steps, p)
+            plotLine(seq[1:25], type_, metric)
+        if metric == 'silhouette':
+            seq = calcSilhouettes(p.shape[0], steps, p)
+            plotLine(seq[1:25], type_, metric)
+        if metric == 'both':
+            seq1= calcSSEs(p.shape[0], steps, p)
+            seq2 = calcSilhouettes(p.shape[0], steps, p)
+            plotDoubleLines(seq1[1:25], seq2[1:25], np.arange(2, 26), 'SSE', 'silhouette', axs[i], type_)
+        
     plt.tight_layout()
     # plt.show()
     plt.savefig(f'{metric}_partial.png')
 # plotLines('SSE') 
-plotLines('silhouette')
+# plotLines('silhouette')
+plotLines('both')
 
-'''
-def checkSilhouette():
-    import numpy as np
-    from sklearn.metrics import silhouette_score
-    from sklearn.cluster import KMeans
-    X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
-    kmeans = KMeans(n_clusters=2, random_state=42)
-    y_kmeans = kmeans.fit_predict(X) # [1 1 1 0 0 0]
-    print(y_kmeans)
-    silhouette_avg = silhouette_score(X, y_kmeans)
-    print(f'{silhouette_avg}') # 0.7133477791749615
-    s = 0
-    for i in range(6):
-        a = b = 0
-        for j in range(6):
-            dis = np.linalg.norm(X[i]-X[j])
-            if y_kmeans[i] != y_kmeans[j]:
-                b += dis
-            else:
-                a += dis
-        a, b = a/2, b/3
-        # s += 1 - a/b
-        # s += (b-a)/max(b,a)
-    print(s/6)
+def plotClusterResults(p, labels, dest_path, cmap='tab20'):
+    '''给定点集p[n][2], 聚类结果labels[n]，绘制聚类结果图，保存于路径dest_path；颜色colormap为cmap，如'tab20' '''
+    plt.scatter(p[:, 0], p[:, 1], c=labels, cmap=cmap)
+    plt.title('Clustering Results')
+    # plt.colorbar(label='class')
+    plt.savefig(dest_path)
     
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    y_kmeans = kmeans.fit_predict(X)
-    print(y_kmeans)
-    silhouette_avg = silhouette_score(X, y_kmeans)
-    print(f'{silhouette_avg}') # 0.7133477791749615
-    # from collections import defaultdict
-    # for i in range(6):
-    #     a = an = 0
-    #     bl = defaultdict(list)
-    #     for j in range(6):
-    #         dis = np.linalg.norm(X[i]-X[j])
-    #         if y_kmeans[i] == y_kmeans[j]:
-    #             a += dis
-    #             an += 1
-    #         else:
-    #             bl[y_kmeans[j]].append(dis)
-    #     b = min( sum(bl[k])/len(bl[k]) for k in bl.keys())
-    #     s += 1 - (a/an)/b
-    # print(s/6)
-    from sklearn.metrics import pairwise_distances
-    def silhouette_coefficients(X, labels):
-        n_samples = X.shape[0]
-        distances = pairwise_distances(X)  # 计算距离矩阵
-        silhouette_values = np.zeros(n_samples)
+def plotAllTypesCluster(k=15):
+    '''绘制四种层次聚类结果,聚成k类'''
+    p = utils.readCSV()
+    fig, axs = plt.subplots(2, 2, figsize=(8, 6))
+    
+    for i, type_ in enumerate(cluster.ALL_TYPES):
+        with open(f'steps_{type_}.txt', 'r') as f:
+            steps = eval(f.read())
+        plt.subplot(2,2,i+1)
+        
 
-        for i in range(n_samples):
-            # a(i): 数据点 i 到同簇内其他点的平均距离
-            same_cluster = distances[i][labels == labels[i]]
-            if len(same_cluster) > 1:  # 确保有多个点
-                a_i = np.mean(same_cluster[same_cluster != 0])  # 排除自身
-            else:
-                a_i = 0  # 只有一个点时设为 0
-
-            # b(i): 数据点 i 到最近簇的平均距离
-            other_clusters = labels != labels[i]
-            if np.any(other_clusters):  # 确保有其他簇
-                b_i = np.min([np.mean(distances[i][other_clusters & (labels == c)]) for c in np.unique(labels[other_clusters])])
-            else:
-                b_i = 0  # 没有其他簇时设为 0
-
-            # 计算 Silhouette Coefficient
-            if a_i == b_i:
-                silhouette_values[i] = 0  # 如果 a(i) 和 b(i) 相等，设为 0
-            else:
-                silhouette_values[i] = (b_i - a_i) / max(a_i, b_i)
-
-        return silhouette_values
-    print(silhouette_coefficients(X, y_kmeans))
-    print(np.sum(silhouette_coefficients(X, y_kmeans))/6)
-            
-checkSilhouette()
-
-def checkSilhouette2():
-    import numpy as np
+# 下面代码没有在正式部分使用
+# @utils.print_exec_time
+def checkSilhouette(p, labels, score):
+    '''检验计算正确性，设算出来系数是score，检验其是否正确\n未在正式代码使用，只用于测试'''
     from sklearn.metrics import silhouette_score
     from sklearn.metrics import silhouette_samples
-    from sklearn.cluster import KMeans
-    X = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
-    kmeans = KMeans(n_clusters=2, random_state=42)
-    y_kmeans = kmeans.fit_predict(X) # [1 1 1 0 0 0]
-    print(y_kmeans)
-    silhouette_avg = silhouette_score(X, y_kmeans)
-    print(silhouette_avg)
-    silhouette_vals = silhouette_samples(X, y_kmeans)
-    print(silhouette_vals)
+    answer = silhouette_score(p, labels)
+    # print(silhouette_samples(p, labels))
+    assert abs(answer - score) < 1e-6, f'answer: {answer}, score: {score}'
     
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    y_kmeans = kmeans.fit_predict(X) # [1 1 1 0 0 0]
-    print(y_kmeans)
-    silhouette_avg = silhouette_score(X, y_kmeans)
-    print(silhouette_avg)
-    silhouette_vals = silhouette_samples(X, y_kmeans)
-    print(silhouette_vals)
-checkSilhouette2()
-'''
+def testSilhouette1():
+    '''检查正确性，未在正式代码使用，只用于测试 \n 检测轮廓系数的计算'''
+    p = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
+    from sklearn.cluster import KMeans
+    kmeans = KMeans(n_clusters=3, random_state=0)
+    labels = kmeans.fit_predict(p)
+    # print(labels)
+    dis = utils.getDisMatrix(p)
+    score = calcSilhouette(dis, labels)
+    checkSilhouette(p, labels, score)
+# testSilhouette1()
+    
+def testSilhouette2():
+    '''检查正确性，未在正式代码使用，只用于测试 \n 检测轮廓系数的计算'''
+    p = np.random.rand(5000, 2)
+    from sklearn.cluster import KMeans
+    kmeans = KMeans(n_clusters=25, random_state=0)
+    labels = kmeans.fit_predict(p)
+    dis = utils.getDisMatrix(p)
+    score = calcSilhouette(dis, labels)
+    checkSilhouette(p, labels, score)
+# testSilhouette2()

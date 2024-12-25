@@ -4,6 +4,7 @@ from functools import wraps
 import sys
 import io
 import numpy as np # 主要用于优化，不然太慢了
+# import matplotlib as plt # 用于画图
 # import subprocess
 
 def print2Darray(a, extraLine = True):
@@ -79,6 +80,7 @@ def getDisMatrixSquare(p):
 # data = readCSV()
 # getDisMatrix(data) 
 
+# 下面代码在正式里没有使用
 def chcp():
     '''切换中文编码，已废置'''
     # subprocess.run('chcp 65001', shell=True)
