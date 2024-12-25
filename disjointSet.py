@@ -85,7 +85,7 @@ class DSU_average(DSU_virtual):
         # self.e[fx, :] = self.e[:, fx] = 0
         
 class DSU_ward(DSU_virtual):
-    ''' DSU_avg + DSU_virtual，参见二者文档'''
+    ''' DSU_avg (下文) + DSU_virtual，参见二者文档'''
     def __init__(self, n, m, p):
         super().__init__(n, m)
         self.sx = np.copy(p[:, 0])  # 当前簇 x 坐标和
@@ -160,6 +160,16 @@ data = np.array([[1, 2], [2, 3], [5, 6], [6, 7]])
 kmeans = KMeans(n_clusters=1, random_state=0).fit(data)
 print(kmeans.inertia_) # 34 (其他同理，1是1类，n_clusters=2可以输出2)
 '''
+
+class DSU_top(DSU):
+    '''维护各簇及其点数(前半部分valid)、最大下标；用于重构步骤以用于绘图'''
+    def __init__(self, n):
+        super().__init__(n)
+        self.top = np.arange(n) # 当前簇最大下标
+        self.siz = np.array([1] * (n//2) + [0] * (n//2)) # 当前簇点数
+    def mergeop(self, fx, fy):
+        self.top[fy] = max(self.top[fx], self.top[fy])
+        self.siz[fy] += self.siz[fx]
 
 # 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
 class DSU_cluster(DSU):

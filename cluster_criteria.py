@@ -66,7 +66,7 @@ def plotLine(seq, type_, metric, logScale=False):
     
 def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
     '''绘制双Y轴折线图给定两个序列为y1,y2，x轴为x，两个序列名字为y1name,y2name，图标题为type_'''
-    ax1.set_title(f'{type_} Cluster') 
+    ax1.set_title(f'{type_} Cluster'.title()) 
     ax1.set_xlabel('Number of Clusters')
     c1, c2 = 'lightcoral', 'steelblue' # 绘图颜色(teal, orange)
     
@@ -84,8 +84,8 @@ def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
     ax1.grid()
 
 # @utils.print_exec_time
-def plotLines(metric):
-    '''绘图展示四种聚类的指标(metric)可取SSE和silhouette和both'''
+def plotLines(metric, show=False):
+    '''绘图展示四种聚类的指标(metric)可取SSE和silhouette和both；show区分是直接展示(True)还是保存到本地(False)'''
     p = utils.readCSV()
     fig, axs = plt.subplots(2, 2, figsize=(8, 6))
     if metric == 'both':
@@ -107,36 +107,65 @@ def plotLines(metric):
             plotDoubleLines(seq1[1:25], seq2[1:25], np.arange(2, 26), 'SSE', 'silhouette', axs[i], type_)
         
     plt.tight_layout()
-    # plt.show()
-    plt.savefig(f'{metric}_partial.png')
+    if show:
+        plt.show()
+    else:
+        plt.savefig(f'{metric}_partial.png')
 # plotLines('SSE') 
 # plotLines('silhouette')
-plotLines('both')
+# plotLines('both')
 
-def plotClusterResults(p, labels, dest_path, cmap='tab20'):
-    '''给定点集p[n][2], 聚类结果labels[n]，绘制聚类结果图，保存于路径dest_path；颜色colormap为cmap，如'tab20' '''
+def plotClusterResults(p, labels, type_, cmap='tab20'):
+    '''给定点集p[n][2], 聚类结果labels[n]，绘制聚类结果图颜色colormap为cmap，如'tab20' '''
     plt.scatter(p[:, 0], p[:, 1], c=labels, cmap=cmap)
-    plt.title('Clustering Results')
+    plt.title(f'{type_} Cluster'.title())
     # plt.colorbar(label='class')
-    plt.savefig(dest_path)
     
-def plotAllTypesCluster(k=15):
-    '''绘制四种层次聚类结果,聚成k类'''
+def plotAllTypesCluster(dest_path='', k=15, show=False):
+    '''绘制四种层次聚类结果,聚成k类; 保存于路径dest_path；show区分是直接展示(True)还是保存到本地(False)'''
     p = utils.readCSV()
-    fig, axs = plt.subplots(2, 2, figsize=(8, 6))
-    
+    fig, axs = plt.subplots(2, 2, figsize=(12, 9))
+    plt.suptitle('Clustering Results of Different Types')
     for i, type_ in enumerate(cluster.ALL_TYPES):
         with open(f'steps_{type_}.txt', 'r') as f:
             steps = eval(f.read())
         plt.subplot(2,2,i+1)
-        
+        labels = cluster.ClusterFromSteps(p.shape[0], steps, k)
+        plotClusterResults(p, labels, type_, cmap='tab20')
+    if show: 
+        plt.show()
+    else:
+        plt.savefig(dest_path)
+# plotAllTypesCluster('cluster_results.png')
+
+def plotSteps(steps, type_):
+    '''绘制层次聚类结果的层次聚类步骤，steps为原始聚类步骤，type_是聚类类型，需要一定的时间渲染图像'''
+    from scipy.cluster.hierarchy import dendrogram
+    steps = cluster.BuildPlottingSteps(steps)
+    # if k > 1:
+    #     steps = steps[:-(k+1),:]
+    plt.figure(figsize=(10, 7))
+    dendrogram(steps, orientation='top', distance_sort='descending', show_leaf_counts=True)
+    plt.title('Dendrogram of '+f'{type_} Cluster'.title())
+    plt.xlabel('Sample Index')
+    plt.ylabel('Distance')
+    plt.xticks([])  # 隐藏 x 轴的横坐标
+    plt.savefig(f'{type_}_clustering_steps.png')
+
+def plotAllSteps():
+    '''绘制所有四种层次聚类的聚类过程图；是否合并成一张图'''
+    for type_ in cluster.ALL_TYPES:
+        with open(f'steps_{type_}.txt', 'r') as f:
+            steps = eval(f.read())
+        plotSteps(steps, type_)
+# plotAllSteps()
 
 # 下面代码没有在正式部分使用
 # @utils.print_exec_time
 def checkSilhouette(p, labels, score):
     '''检验计算正确性，设算出来系数是score，检验其是否正确\n未在正式代码使用，只用于测试'''
     from sklearn.metrics import silhouette_score
-    from sklearn.metrics import silhouette_samples
+    # from sklearn.metrics import silhouette_samples
     answer = silhouette_score(p, labels)
     # print(silhouette_samples(p, labels))
     assert abs(answer - score) < 1e-6, f'answer: {answer}, score: {score}'

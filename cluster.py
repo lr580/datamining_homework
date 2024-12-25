@@ -1,11 +1,14 @@
 from typing import List # 代码函数参数提示
-from disjointSet import DSU, DSU_average, DSU_ward, getClasses, DSU_hard # 手写实现的并查集数据结构
+from disjointSet import DSU, DSU_average, DSU_ward, getClasses, DSU_hard, DSU_top # 手写实现的并查集数据结构
 import utils # 手写辅助函数
 import numpy as np # 加速运算
 import heapq # 优先级队列(最小堆)
+import os # 文件操作
 
 ALL_TYPES = ('single', 'complete','average', 'ward') 
-# 手写的计时装饰器，可以取消，主要用于调试
+'''所有四种层次聚类的名字'''
+
+# 手写的计时装饰器，可以取消，主要用于调试 (运行时间根据电脑性能不同存在差异)
 @utils.print_exec_time
 def cluster(p:List[List[float]], type_:str, k:int=1):
     '''层次聚类 \n
@@ -247,6 +250,20 @@ def wardCluster(p, k:int):
                 break
     return getClasses(dsu)[:n], steps
 
+def generateAllClusterSteps(lazy=False):
+    '''对 8gau.txt 数据集分别求四种聚类，得到的结果存储在根目录 steps_xxx.txt，其中 xxx=single, complete, average, ward；详见cluster函数注释和文档\n
+    lazy表示是否文件存在时不进行计算直接使用结果，若lazy=True则如此'''
+    p = utils.readCSV()
+    for type_ in ALL_TYPES:
+        path = f'steps_{type_}.txt'
+        if os.path.exists(path) and lazy:
+            continue
+        labels, steps = cluster(p, type_)
+        with open(path, 'w') as f:
+            f.write(str(steps))
+# generateAllClusterSteps(True)
+# generateAllClusterSteps(False)
+
 def ClusterFromStepsBuilder(n, steps, k=1,continous=True):
     '''对n个点，根据完全聚类(聚成1类)的步骤steps，构造一个聚成k类的步骤 \n
     使用生成器结构，方便一步一步地得到聚成n, n-1, ..., k+1, k 类结果 \n
@@ -272,6 +289,24 @@ def ClusterFromSteps(n, steps, k=1,):
         u, v, _ = steps[i]
         dsu.merge(u, v)
     return getClasses(dsu)
+
+def BuildPlottingSteps(steps):
+    '''为了能绘制可视化图，将steps格式转化为绘图格式： \n
+    n各点：[n-1][4] 数组：旧簇索引1 旧簇索引2 距离 新簇大小 \n
+    时间复杂度 O(n)，基于并查集重构'''
+    n = len(steps) + 1
+    dsu = DSU_top(n*2)
+    steps2 = np.zeros((n-1, 4), dtype=np.float64)
+    top = n # 下一个类的编号
+    for i in range(n-1):
+        u, v, dis = steps[i]
+        fu, fv = dsu.findFa(u), dsu.findFa(v)
+        tu, tv = dsu.top[fu], dsu.top[fv]
+        dsu.merge(fu, top)
+        dsu.merge(fv, top)
+        steps2[i] = np.array([tu, tv, dis, dsu.siz[dsu.findFa(top)]])
+        top += 1
+    return steps2
 
 # 以下是测试正确性的测试用例代码，并未在正式代码中使用
 def check_correct2(a, steps, type_:str):
@@ -533,3 +568,50 @@ def testcase1():
     assert check_correct(testcase_pointwise, steps, 'ward', False)
     print(steps)
 # testcase1()
+
+def checkStepsReconstruction(steps, p, type_):
+    '''检查重构绘图的steps是否满足绘图库函数标准 \n
+    经过检验：实际上本质是一样的，差异是由于相等权重的顺序不一样导致的'''
+    from scipy.cluster.hierarchy import linkage
+    linked = linkage(p, type_)
+    # uni_dis, count = len(np.unique(steps[:, 2]))
+    # print(uni_dis)
+    for i in range(len(steps)):
+        u1, v1 = sorted([steps[i][0], steps[i][1]])
+        u2, v2 = sorted([linked[i][0], linked[i][1]])
+        d1, d2 = steps[i][2], linked[i][2]
+        c1, c2 = steps[i][3], linked[i][3]
+        if not (u1 == u2 and v1 == v2):
+            indices = np.where(linked[:, 2] == d2)[0]
+            # print(indices)
+            if indices.shape[0] == 1:
+                if abs(c1-c2)>1: # 针对观察得出的 SPJ
+                    '''在观察里 print(indices): [574 575] [574 575] [1856]
+                    同权值下，这意味着它们顺序合并有差异，导致新簇编号差异为1，这是由于未规定距离相同输出顺序的正常现象'''
+                    raise Exception(f'failed1 {i} {u1} {v1} {u2} {v2}')
+            else:
+                ok = False
+                for j in indices:
+                    if sorted([linked[j][0], linked[j][1]]) == [u2, v2]:
+                        ok = True
+                        break
+                if not ok:
+                    raise Exception(f'failed2 {i} {u1} {v1} {u2} {v2}')
+        assert np.abs(d1-d2)<1e-6
+        assert c1 == c2
+        # for j in range(4):
+        #     assert linked[i][j] == steps[i][j], f'failed {i} {j} {linked[i][j]} {steps[i][j]}'
+
+def checkAllStepsReconstruction():
+    '''检查全部重构绘图的steps是否满足绘图库函数标准，直接读取结果'''
+    p = utils.readCSV()
+    for type_ in ALL_TYPES:
+        with open(f'steps_{type_}.txt', 'r') as f:
+            steps = eval(f.read())
+        # print(type_)
+        steps2 = BuildPlottingSteps(steps)
+        try:
+            checkStepsReconstruction(steps2, p, type_)
+        except Exception as e:
+            print(f'failed {type_} : {e}')
+# checkAllStepsReconstruction()
