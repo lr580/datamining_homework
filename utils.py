@@ -80,7 +80,37 @@ def getDisMatrixSquare(p):
 # data = readCSV()
 # getDisMatrix(data) 
 
+
+
+
 # 下面代码在正式里没有使用
+def getGMMsampleParams():
+    '''随机获得一个固定的高斯混合模型参数，用于测试算法正确性'''
+    z = np.array([0.1, 0.6, 0.3])
+    m = np.array([[0, 0], [0, 7], [7, 0]])
+    c = np.array([[[1, 0.5], [0.5, 1]], [[1, -0.5], [-0.5, 1]], [[1, 0], [0, 1]]])
+    return z, m, c, 5000
+
+def getGMMsamplePoints(z, m, c, n, shuffle=True):
+    '''给定占比z[k],均值m[k][2],协方差矩阵c[k][2][2]和点数n \n
+    生成高斯混合模型样本点集X[n][2],标签y[n] \n
+    如果shuffle=True，随机打乱数据返回'''
+    k = len(z)
+    n_samples = (n * z).astype(int)
+    n_samples[-1] += n - sum(n_samples)
+    X, y = [], []
+    for label in range(k):
+        X.append(np.random.multivariate_normal(m[label], c[label], n_samples[label]))
+        y.extend([label] * n_samples[label])
+    X = np.vstack(X)
+    y = np.array(y)
+    if shuffle:
+        indices = np.arange(n)
+        np.random.shuffle(indices)
+        X = X[indices]
+        y = y[indices]
+    return X, y
+
 def chcp():
     '''切换中文编码，已废置'''
     # subprocess.run('chcp 65001', shell=True)

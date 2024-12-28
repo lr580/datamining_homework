@@ -118,7 +118,8 @@ def plotLines(metric, show=False):
 def plotClusterResults(p, labels, type_, cmap='tab20'):
     '''给定点集p[n][2], 聚类结果labels[n]，绘制聚类结果图颜色colormap为cmap，如'tab20' '''
     plt.scatter(p[:, 0], p[:, 1], c=labels, cmap=cmap)
-    plt.title(f'{type_} Cluster'.title())
+    type_ = type_[0].upper() + type_[1:] # 格式化首字符大写
+    plt.title(f'{type_} Cluster')
     # plt.colorbar(label='class')
     
 def plotAllTypesCluster(dest_path='', k=15, show=False):
