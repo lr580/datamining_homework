@@ -80,7 +80,11 @@ def getDisMatrixSquare(p):
 # data = readCSV()
 # getDisMatrix(data) 
 
-
+def z_score(x):
+    '''对输入点X[n][2],将其标准化为均值0方差1: 返回 (X-μ)/σ'''
+    mu = np.mean(x, axis=0)
+    sigma = np.std(x, axis=0)
+    return (x - mu) / sigma
 
 
 # 下面代码在正式里没有使用
@@ -89,12 +93,24 @@ def getGMMsampleParams():
     z = np.array([0.1, 0.6, 0.3])
     m = np.array([[0, 0], [0, 7], [7, 0]])
     c = np.array([[[1, 0.5], [0.5, 1]], [[1, -0.5], [-0.5, 1]], [[1, 0], [0, 1]]])
+    # 测试数据范围对结果的影响：结果表明，在下面情况下，我手写的GMM会NAN
+    # m = np.array([[0, 0], [0, 7], [7, 0]]) * 1e5
+    # c = np.array([[[1, 0.5], [0.5, 1]], [[1, -0.5], [-0.5, 1]], [[1, 0], [0, 1]]]) * 1e10
     return z, m, c, 5000
 
-def getGMMsamplePoints(z, m, c, n, shuffle=True):
+def getGMMsampleParams2():
+    '''随机获得一个固定的高斯混合模型参数，用于测试算法正确性'''
+    # 测试数据范围对结果的影响：结果表明，在下面情况下，我手写的GMM会NAN
+    z = np.array([0.1, 0.6, 0.3])
+    m = np.array([[0, 0], [0, 7], [7, 0]]) * 1e5
+    c = np.array([[[1, 0.5], [0.5, 1]], [[1, -0.5], [-0.5, 1]], [[1, 0], [0, 1]]]) * 1e10
+    return z, m, c, 5000
+
+def getGMMsamplePoints(z, m, c, n, seed=580, shuffle=True):
     '''给定占比z[k],均值m[k][2],协方差矩阵c[k][2][2]和点数n \n
     生成高斯混合模型样本点集X[n][2],标签y[n] \n
     如果shuffle=True，随机打乱数据返回'''
+    np.random.seed(seed)
     k = len(z)
     n_samples = (n * z).astype(int)
     n_samples[-1] += n - sum(n_samples)

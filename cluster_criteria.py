@@ -1,6 +1,7 @@
 # 测试聚类结果，以及可视化相关代码
 import disjointSet # 手写并查集
 import cluster # 手写层次聚类
+import gmm # 手写GMM
 import utils # 手写辅助函数
 import matplotlib.pyplot as plt 
 import numpy as np
@@ -161,6 +162,36 @@ def plotAllSteps():
         plotSteps(steps, type_)
 # plotAllSteps()
 
+def plotLines_GMM(seed, show=False):
+    '''绘图展示GMM聚类为k=15类的结果，测试不同的初始化策略'''
+    p = utils.readCSV()
+    fig, axs = plt.subplots(2, 2, figsize=(12, 9))
+    axs = axs.flatten()
+    plt.suptitle('Different Init Strategies of GMM Clustering')
+    for i, strategy in enumerate(gmm.GMM.ALL_INIT_STRAGEGY):
+        label, model = gmm.GMMcluster(p, 15, strategy, seed)
+        plt.subplot(2,2,i+1)
+        plotClusterResults(p, label, f'GMM (With {strategy.title()} Init) ')
+    plt.tight_layout()
+    if show:
+        plt.show()
+    else:
+        plt.savefig(f'GMM_different_strategy.png')
+# for i in range(20):
+#     seed = np.random.randint(1000, 10000)
+#     print(seed)
+#     plotLines_GMM(seed, True)
+plotLines_GMM(8146, True)
+
+def plotGMMcluster():
+    '''绘制高斯混合聚类结果'''
+    X = utils.readCSV()
+    y, model = gmm.GMMcluster(X)
+    plotClusterResults(X, y, 'GMM')
+    model.print_params()
+    plt.show()
+# plotGMMcluster()
+
 # 下面代码没有在正式部分使用
 # @utils.print_exec_time
 def checkSilhouette(p, labels, score):
@@ -193,3 +224,56 @@ def testSilhouette2():
     score = calcSilhouette(dis, labels)
     checkSilhouette(p, labels, score)
 # testSilhouette2()
+
+def checkGMM():
+    '''检查高斯混合聚类结果，未在正式代码使用，只用于测试'''
+    X = utils.readCSV()
+    from sklearn.mixture import GaussianMixture
+    gmm = GaussianMixture(n_components=15, random_state=0)
+    X0 = utils.z_score(X)
+    y = gmm.fit_predict(X0)
+    plotClusterResults(X, y, 'GMM')
+    plt.show()
+    for i in range(gmm.n_components):
+        print(i + 1)
+        print(gmm.weights_[i])
+        print(gmm.means_[i])
+        print(gmm.covariances_[i])
+# checkGMM()
+
+def checkKMeans(strategy, seed=50):
+    '''检查KMeans聚类结果，未在正式代码使用，只用于测试'''
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    X = utils.readCSV()
+    X0 = utils.z_score(X)
+    model = gmm.KMeans(15, seed, strategy)
+    model.fit(X0)
+    y = model.predict(X0)
+    plt.subplot(1,2,1)
+    plotClusterResults(X0, y, 'KMeans '+strategy.title())
+    c = model.centroids
+    plt.scatter(c[:, 0], c[:, 1], c='black', marker='x')
+
+    from sklearn.cluster import KMeans
+    model2 = KMeans(15, random_state=seed)
+    model2.fit(X0)
+    y2 = model2.predict(X0)
+    plt.subplot(1,2,2)
+    plotClusterResults(X0, y2, 'KMeans '+strategy.title())
+    c = model2.cluster_centers_
+    plt.scatter(c[:, 0], c[:, 1], c='black', marker='x')
+    plt.show()
+# checkKMeans('random')
+# checkKMeans('kmeans++', 996)
+
+@utils.print_exec_time
+def checkKMedoids():
+    '''检查KMedoids聚类结果，未在正式代码使用，只用于测试'''
+    X = utils.readCSV()
+    X0 = utils.z_score(X)
+    model = gmm.KMedoids(15, 50)
+    model.fit(X0)
+    y = model.predict(X0)
+    plotClusterResults(X, y, 'KMedoids')
+    plt.show()
+# checkKMedoids()
