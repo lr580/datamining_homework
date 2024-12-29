@@ -16,9 +16,15 @@ class GMM:
         '''输入数据X[n][2], 随机初始化k个高斯分布的参数(μ,Σ,w)'''
         self.rng = np.random.default_rng(self.seed)
         n_samples, n_features = X.shape # 点数，维度数(对本题一定是2)
+        self.weights = np.ones(self.k) / self.k 
+        self.means = X[self.rng.choice(n_samples, self.k, False)] 
+        self.covariances = np.array([np.eye(n_features)] * self.k) 
+
+    def calcParams(self, X, y, p):
+        '''输入数据X[n][2], 标签y[n]，预测均值点p[n][2]，计算每个高斯分布的参数(μ,Σ,w)，内部辅助函数'''
         self.weights = np.ones(self.k) / self.k # z 权重，代表每个高斯分布占总数据的比例
-        self.means = X[self.rng.choice(n_samples, self.k, False)] # 每个高斯分布的均值
-        self.covariances = np.array([np.eye(n_features)] * self.k) # 每个高斯分布的协方差矩阵
+        self.means = p # 每个高斯分布的均值
+        self.covariances = np.array([np.cov(X[y == i].T) + 1e-6 * np.eye(X.shape[1]) for i in range(self.k)]) # 每个高斯分布的协方差矩阵
 
     def init_with_Kmeans(self, X, strategy='random'):
         '''输入数据X[n][2], 用Kmeans算法初始化k个高斯分布的参数(μ,Σ,w) \n
@@ -26,18 +32,22 @@ class GMM:
         kmeans = KMeans(self.k, self.seed, strategy)
         kmeans.fit(X)
         y = kmeans.predict(X)
-        self.means = kmeans.centroids
-        self.weights = np.ones(self.k) / self.k
-        self.covariances = np.array([np.cov(X[y == i].T) + 1e-6 * np.eye(X.shape[1]) for i in range(self.k)])
+        self.calcParams(X, y, kmeans.centroids)
+        # self.means = kmeans.centroids
+        # self.weights = np.ones(self.k) / self.k
+        
 
     def init_with_kmedoids(self, X):
         '''输入数据X[n][2],用Kmedoids算法初始化k个高斯分布的参数(μ,Σ,w)\n
         未在正式代码使用，已废置'''
         kmedoids = KMedoids(n_clusters=self.k, random_state=self.seed)
         kmedoids.fit(X)
-        self.means = kmedoids.medoids
-        self.weights = np.ones(self.k) / self.k
-        self.covariances = np.array([np.eye(X.shape[1])] * self.k)
+        y = kmedoids.predict(X)
+        self.calcParams(X, y, kmedoids.medoids)
+        # self.means = kmedoids.medoids
+        # self.weights = np.ones(self.k) / self.k
+        
+        # self.covariances = np.array([np.eye(X.shape[1])] * self.k)
 
     ALL_INIT_STRAGEGY = ['random', 'kmedoids', 'kmeans', 'kmeans++']
     '''所有初始化策略'''
@@ -192,43 +202,8 @@ class KMeans:
         distances = self.compute_distances(X)
         return np.argmin(distances, axis=1)
 
-@utils.print_exec_time
-def test_kmeans():
-    '''检验聚类正确性，未在正式代码使用'''
-    from sklearn.datasets import make_blobs
-    X, _ = make_blobs(n_samples=5000, centers=15, cluster_std=0.60, random_state=0)
-    kmeans = KMeans(n_clusters=15)
-    kmeans.fit(X)
-    print(kmeans.centroids)
-# test_kmeans()
-
-# 下面是测试代码，主要用于检验代码正确性
-def test_multivariate_gaussian():
-    '''测试高斯分布函数的矩阵计算'''
-    np.random.seed(0)  # 设置随机种子以便可重复
-    mean = np.array([0, 0])  # 均值
-    cov = np.array([[1, 0.5], [0.5, 1]])  # 协方差矩阵
-    X = np.random.multivariate_normal(mean, cov, size=5)  # 生成5个样本点
-    gmm = GMM(1)
-    res = gmm.multivariate_gaussian(X, mean, cov)
-    print(res)
-# test_multivariate_gaussian()
-
-@utils.print_exec_time
-def GMMcluster(X=None, k=15, strategy='kmeans++', seed=50):
-    '''使用手写GMM聚类，对数据集X(8gau.txt)进行聚类，聚成k类 \n
-    初始化策略为 strategy, 参见 GMM.init() 函数描述 \n
-    返回聚类结果y和模型本身'''
-    if X is None:
-        X = utils.readCSV()
-    gmm = GMM(k, strategy, seed)
-    X0 = utils.z_score(X) # 手写标准化
-    gmm.fit(X0)
-    y = gmm.predict(X0)
-    return y, gmm
-
 class KMedoids:
-    '''手写 Kmediods 聚类算法'''
+    '''手写 Kmedoids 聚类算法'''
     def __init__(self, n_clusters=3, max_iter=100, random_state=None):
         '''初始化，n_clusters聚类数，max_iter迭代数，random_state随机种子'''
         self.n_clusters = n_clusters
@@ -269,13 +244,48 @@ class KMedoids:
     def predict(self, X):
         '''进行预测，返回分类标签X'''
         return self.assign_labels(X)
+
+# @utils.print_exec_time
+def GMMcluster(X=None, k=15, strategy='kmeans++', seed=50):
+    '''使用手写GMM聚类，对数据集X(8gau.txt)进行聚类，聚成k类 \n
+    初始化策略为 strategy, 参见 GMM.init() 函数描述 \n
+    返回聚类结果y和模型本身'''
+    if X is None:
+        X = utils.readCSV()
+    gmm = GMM(k, strategy, seed)
+    X0 = utils.z_score(X) # 手写标准化
+    gmm.fit(X0)
+    y = gmm.predict(X0)
+    return y, gmm
+
+# 下面是测试代码，主要用于检验代码正确性
+@utils.print_exec_time
+def test_kmeans():
+    '''检验聚类正确性，未在正式代码使用'''
+    from sklearn.datasets import make_blobs
+    X, _ = make_blobs(n_samples=5000, centers=15, cluster_std=0.60, random_state=0)
+    kmeans = KMeans(n_clusters=15)
+    kmeans.fit(X)
+    print(kmeans.centroids)
+# test_kmeans()
+
+def test_multivariate_gaussian():
+    '''测试高斯分布函数的矩阵计算，未在正式代码使用'''
+    np.random.seed(0)  # 设置随机种子以便可重复
+    mean = np.array([0, 0])  # 均值
+    cov = np.array([[1, 0.5], [0.5, 1]])  # 协方差矩阵
+    X = np.random.multivariate_normal(mean, cov, size=5)  # 生成5个样本点
+    gmm = GMM(1)
+    res = gmm.multivariate_gaussian(X, mean, cov)
+    print(res)
+# test_multivariate_gaussian()
     
 # print(GMM.ALL_INIT_STRAGEGY)
 
 def check_KMeans(seed=996):
     '''检验KMeans聚类正确性，未在正式代码使用 \n
     经过大量随机数实验，seed=996时，手写和标准KMeans的聚类结果一致 \n
-    且其计算出来的均值和协方差也是几乎一样的'''
+    且其计算出来的均值和协方差也是几乎一样的，未在正式代码使用'''
     X = utils.readCSV()
     X0 = utils.z_score(X)
     # X0 = X

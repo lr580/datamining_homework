@@ -177,11 +177,12 @@ def plotLines_GMM(seed, show=False):
         plt.show()
     else:
         plt.savefig(f'GMM_different_strategy.png')
-# for i in range(20):
+# for i in range(20): # 寻找较优的随机参数
 #     seed = np.random.randint(1000, 10000)
 #     print(seed)
 #     plotLines_GMM(seed, True)
 plotLines_GMM(8146, True)
+# plotLines_GMM(8146, False)
 
 def plotGMMcluster():
     '''绘制高斯混合聚类结果'''
