@@ -4,7 +4,7 @@
 
 请参见 `report.md` 或 PDF。
 
-> 所有代码经过充分测试，保证手写实现的结果与库函数结果一致，保证了代码的正确性。且所有代码经过充分优化，时空效率较优。
+所有代码经过充分测试，保证手写实现的结果的正确性。且所有代码经过充分优化，时空效率较优。
 
 ## 运行方法
 
@@ -12,11 +12,13 @@
 
 - `numpy` 用于优化运算时空效率
 - `matplotlib` 用于绘制图表
-- `sklearn` 用于绘制图表、协同过滤
+- `scipy` 用于绘制图表
 
 项目主函数入口在 `main.py`，使用命令行参数来选择执行内容，执行下面指令的任意一条，选择不同的功能。(具体解释见下文 `命令参数` 一节)
 
 ```sh
+python main.py --compare plot # 对比展示层次聚类和GMM聚类结果
+python main.py --compare stat # 对比输出层次聚类和GMM聚类指标
 python main.py --cluster plot # 绘制层次聚类结果展示
 python main.py --cluster stat # 绘制层次聚类的SSE,轮廓系数展示
 python main.py --cluster step # 绘制层次聚类过程步骤保存到磁盘
@@ -24,8 +26,6 @@ python main.py --cluster generate # 进行4种层次聚类
 python main.py --gmm diff_init # 绘制4种初始化策略的GMM聚类展示
 python main.py --gmm diff_k # 绘制不同类别数的GMM聚类展示
 python main.py --gmm diff_k_stat # 绘制不同类别数的GMM聚类指标展示
-python main.py --compare plot # 对比展示层次聚类和GMM聚类结果
-python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
 ```
 
 > 在每条指令的后面输入 `--save`，可以把结果展示到屏幕改为写入到磁盘。
@@ -183,9 +183,11 @@ python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
 
 介绍代码和关键函数。部分核心函数的讲解参见下面 `核心原理` 一节。
 
+- `main.py` 主函数入口
+  - `main()` 主函数，实现通过参数调用不同的功能
+
 #### 层次聚类
 
-- `main.py` 主函数入口
 - `disjointSet.py` 各种手写并查集，用于实现层次聚类各功能
   - `DSU` 手写并查集的类
   - `DSU_average` 维护组平均距离的并查集子类
@@ -210,14 +212,25 @@ python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
 
 #### GMM
 
+- `gmm.py` 实现 GMM 类和相关初始化类
+  - `GMM` 类，高斯混合模型聚类
+  - `KMeans` 类，实现 GMM 初始化的 K-means 和 K-means++ 方法
+  - `KMedoids` 类，实现GMM 初始化的 K-medoids 方法
+  - `GMMcluster()` 读取数据集并使用 GMM 进行聚类
 
+- `cluster_criteria.py` 聚类指标计算和绘图展示
+  - `plotLines_GMM()` 绘制四种 GMM 初始化方法的聚类结果
+  - `plotLines_GMM_k()` 绘制不同类别数的 GMM 聚类结果
+  - `plotSSE_Silhouette_GMM_k()` 绘制不同类别数的 GMM 聚类的SSE、轮廓系数
+  - `plotWardVsGMM()` 绘制GMM与层次聚类的聚类结果对比
+  - `compareWardAndGMM()` 比较GMM与层次聚类SSE、轮廓系数
+
+- `utils.py` 辅助函数，如预处理数据集等
+  - `z_score()` 实现数据集标准化预处理
 
 ### 数据
 
 - `8gau.txt` 第一题(层次聚类+GMM)数据
-
-#### 层次聚类
-
 - `steps_single.txt` 最小聚类运行结果
 - `steps_complete.txt` 最大聚类运行结果
 - `steps_average.txt` 组平均聚类运行结果

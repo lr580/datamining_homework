@@ -132,11 +132,11 @@ class GMM:
             print(f'iter {i}: {x}')
 
     def save_params(self, path):
-        '''保存模型参数，方便重现结果，主要用于调试'''
+        '''保存模型参数，方便重现结果，主要用于调试，未在正式代码使用'''
         np.savez(path, weights=self.weights, means=self.means, covariances=self.covariances, k=self.k, seed=self.seed, strategy=self.strategy, max_iter=self.max_iter, err=self.err)
     
     def load_params(self, path):
-        '''加载模型参数'''
+        '''加载模型参数，未在正式代码使用'''
         data = np.load(path)
         self.weights = data['weights']
         self.means = data['means']
@@ -217,7 +217,6 @@ class KMeans:
             break
         return centroids
         
-
     def init(self, X):
         '''初始化质心'''
         np.random.seed(self.random_state)

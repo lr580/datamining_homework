@@ -26,6 +26,7 @@ def main():
             show = False
         elif argv[1] == 'generate': # 进行层次聚类，得到聚类步骤结果，用于后续绘图
             cluster.generateAllClusterSteps() # 就算计算过，也重新计算一下
+            show = False
         else:
             unknown()
     elif argv[0] == '--gmm': # GMM
@@ -42,8 +43,6 @@ def main():
             cluster_criteria.plotWardVsGMM(show=show)
         elif argv[1] == 'stat': # 对比展示层次聚类和GMM聚类的SSE，轮廓系数
             cluster_criteria.compareWardAndGMM(show=show)
-    elif argv[0] == '--all': # 输出所有?
-        ...
     else:
         unknown()
     if not show and not is_unk: # 不是在线展示而是写入磁盘

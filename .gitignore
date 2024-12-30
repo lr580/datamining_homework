@@ -8,3 +8,4 @@ README.pdf
 report.pdf
 *.pkl.npz
 !steps_*.txt
+*.pdf
