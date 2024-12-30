@@ -14,19 +14,25 @@
 - `matplotlib` 用于绘制图表
 - `sklearn` 用于绘制图表、协同过滤
 
-项目主函数入口在 `main.py`，使用命令行参数来选择执行内容。
+项目主函数入口在 `main.py`，使用命令行参数来选择执行内容。(具体解释见下文)
 
-运行环境要求：请至少准备 2GB 以上
+```sh
+python main.py --cluster plot # 绘制层次聚类结果展示
+python main.py --cluster stat # 绘制层次聚类的SSE,轮廓系数展示
+python main.py --cluster step # 绘制层次聚类过程步骤保存到磁盘
+python main.py --cluster generate # 进行4种层次聚类
+python main.py --gmm diff_init # 绘制4种初始化策略的GMM聚类展示
+python main.py --gmm diff_k # 绘制不同类别数的GMM聚类展示
+python main.py --gmm diff_k_stat # 绘制不同类别数的GMM聚类指标展示
+python main.py --compare plot # 对比展示层次聚类和GMM聚类结果
+python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
+```
+
+
 
 支持的运行功能的详细介绍：(若 Linux，可以把 `python` 改为 `python3` 等)
 
-1. > 系统自检：输出 OK，表示相关依赖安装正常。
-   >
-   > ```sh
-   > python main.py --check
-   > ```
-
-2. 对给定数据 `8gau.txt`，执行层次聚类，生成结果。
+1. 对给定数据 `8gau.txt`，执行层次聚类，生成结果。
 
    1. 使用预先运行好的层次聚类结果绘图，**绘制四种聚类结果**。结果直接展示。
 
@@ -71,22 +77,22 @@
       - 平均聚类 `average_clustering_steps.png`
       - ward聚类 `ward_clustering_steps.png`
 
-   4. 对原数据集进行层次聚类，生成聚类结果(聚类步骤记录)。
+   4. 对原数据集**进行层次聚类，生成聚类结果**(聚类步骤记录)。
 
       ```sh
       python main.py --cluster generate
       ```
 
-      该结果用于三个绘图展示。已经预先计算过，但是可以重新计算。总共需要大约1分钟。得到的结果记录为：
+      该结果用于三个绘图展示。**该功能运行环境要求：请至少准备 2GB 以上内存**。<u>已经预先计算过，但是可以重新计算</u>。总共需要大约1分钟。如果执行该得到的结果记录为：
 
       - 最小聚类 `steps_single.txt`
       - 最大聚类 `steps_complete.txt`
       - 平均聚类 `steps_average.txt`
       - ward聚类 `steps_ward.txt`
-   
-   5. 1
-   
-      > 注：因为使用了随机函数，所以如果结果不佳，可以重新运行一次。
+
+2. 
+
+   > 注：因为使用了随机函数，所以偶然结果不佳是正常现象，可以重新运行一次。
 
 
 
