@@ -209,11 +209,11 @@ def discretization(a):
             res[x] = len(res)
     return [res[x] for x in a]
 
-# 基数排序，一种 O(nc) 的排序算法，其中 c 较低，可以优于 O(nlogn) ；但是表现不如 np.sort 故废置
-# 参考：https://oi-wiki.org/basic/radix-sort/
-# 个人实现 https://github.com/lr580/algorithm_template
 def radixSort(a, maxbit = 40, eachbit = 8):
-    # 复杂度 O(nc), n=len(a), c=log2(max(a)) / eachbit
+    '''基数排序，一种 O(nc) 的排序算法，其中 c 较低，可以优于 O(nlogn) ；但是表现不如 np.sort 故废置 \n
+    参考：https://oi-wiki.org/basic/radix-sort/ \n
+    个人实现 https://github.com/lr580/algorithm_template \n
+    复杂度 O(nc), n=len(a), c=log2(max(a)) / eachbit'''
     mask=(1<<eachbit) - 1 
     x=a[::]
     n=len(a)

@@ -1,6 +1,7 @@
 # 个人手写实现的可删堆
 # 目前优化过的层次聚类没使用 heap.py，该代码文件是我在实现层次聚类过程的尝试
 # 基于我个人的算法模板集 https://github.com/lr580/algorithm_template
+# 在优化过的层次聚类中，不再需要使用可删堆等数据结构，故目前废置
 import numpy as np
 from heapq import heappush, heappop
 class Heap:
@@ -61,13 +62,14 @@ class HeapMap:
         '''取最小值的键值对k,v'''
         return tuple(reversed(self.heap.top())) 
 
-from sortedcontainers import SortedList     
+
 class TreeMap:
     '''红黑树基础上，假设键值对是 (k,v)，按值v排序，添加功能：\n
     根据 k 寻找 v；实现对其的维护，键是矩阵(n,n) \n
     值是 (n, s) 表示总点数和总边权 \n
     专为avg层次聚类设计'''
     def __init__(self, n):
+        from sortedcontainers import SortedList    
         self.n = n
         self.map = SortedList()
         self.k2n = np.zeros((n,n), dtype=np.int16)

@@ -162,7 +162,7 @@ def plotAllSteps():
         plotSteps(steps, type_)
 # plotAllSteps()
 
-def plotLines_GMM(seed, show=False):
+def plotLines_GMM(seed=8146, show=False):
     '''绘图展示GMM聚类为k=15类的结果，测试不同的初始化策略'''
     p = utils.readCSV()
     fig, axs = plt.subplots(2, 2, figsize=(12, 9))
@@ -184,6 +184,24 @@ def plotLines_GMM(seed, show=False):
 plotLines_GMM(8146, True)
 # plotLines_GMM(8146, False)
 
+def plotLines_GMM_k(seed=8146, show=False):
+    '''绘图展示GMM聚类为不同k的结果，测试不同的初始化策略'''
+    k_list = [15, 2, 4, 6, 8, 10, 13,17, 19]
+    p = utils.readCSV()
+    fig, axs = plt.subplots(3, 3, figsize=(12, 9))
+    plt.suptitle('Different K for GMM Clustering')
+    for i, k in enumerate(k_list):
+        label, model = gmm.GMMcluster(p, k, 'kmeans++', seed)
+        plt.subplot(3,3,i+1)
+        plotClusterResults(p, label, f'GMM (K={k})')
+    plt.tight_layout()
+    if show:
+        plt.show()
+    else:
+        plt.savefig(f'GMM_different_k.png')
+# plotLines_GMM_k(8146, True)
+# plotLines_GMM_k(8146, False)
+
 def plotGMMcluster():
     '''绘制高斯混合聚类结果'''
     X = utils.readCSV()
@@ -193,10 +211,12 @@ def plotGMMcluster():
     plt.show()
 # plotGMMcluster()
 
+
 # 下面代码没有在正式部分使用
 # @utils.print_exec_time
 def checkSilhouette(p, labels, score):
-    '''检验计算正确性，设算出来系数是score，检验其是否正确\n未在正式代码使用，只用于测试'''
+    '''检验计算正确性，设算出来系数是score，检验其是否正确\n
+    未在正式代码使用，只用于测试'''
     from sklearn.metrics import silhouette_score
     # from sklearn.metrics import silhouette_samples
     answer = silhouette_score(p, labels)
@@ -204,7 +224,8 @@ def checkSilhouette(p, labels, score):
     assert abs(answer - score) < 1e-6, f'answer: {answer}, score: {score}'
     
 def testSilhouette1():
-    '''检查正确性，未在正式代码使用，只用于测试 \n 检测轮廓系数的计算'''
+    '''检查正确性，未在正式代码使用，只用于测试 \n 
+    检测轮廓系数的计算'''
     p = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
     from sklearn.cluster import KMeans
     kmeans = KMeans(n_clusters=3, random_state=0)
