@@ -51,8 +51,7 @@ def calcSilhouette(dis, labels):
 
 def calcSilhouettes(n, steps, p, calcLim=25):
     '''给定聚类过程steps和点集p，计算聚成k∈[1,n]类各自的SSE，返回0-indexed的轮廓系数列表，calcLim 是最多多少类时计算轮廓系数 \n
-    计算各点的轮廓系数Silhouette Coefficient的平均
-    '''
+    计算各点的轮廓系数Silhouette Coefficient的平均'''
     silhouette = [0] * n
     dsu = disjointSet.DSU_hard(n)
     distance_matrix = utils.getDisMatrix(p)
@@ -75,8 +74,8 @@ def plotLine(seq, type_, metric, logScale=False):
     plt.ylabel(f'{metric}')
     plt.grid()
     
-def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
-    '''绘制双Y轴折线图给定两个序列为y1,y2，x轴为x，两个序列名字为y1name,y2name，图标题为type_'''
+def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_, bbox=(1,.8)):
+    '''绘制双Y轴折线图给定两个序列为y1,y2，x轴为x，两个序列名字为y1name,y2name，图标题为type_，图例位置bbox'''
     type_ = type_ if type_.isupper() else type_.title()
     ax1.set_title(f'{type_} Cluster') 
     ax1.set_xlabel('Number of Clusters')
@@ -96,7 +95,7 @@ def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
     handles1, labels1 = ax1.get_legend_handles_labels()
     handles2, labels2 = ax2.get_legend_handles_labels()
     handles = [Patch(color=c1, alpha=1, label=y1name), Patch(color=c2, alpha=1, label=y2name)]
-    ax2.legend(handles=handles, loc='upper right')
+    ax2.legend(handles=handles, loc='upper right', bbox_to_anchor=bbox)
     ax1.grid()
 
 # @utils.print_exec_time
@@ -138,7 +137,7 @@ def plotClusterResults(p, labels, type_, cmap='tab20'):
     plt.title(f'{type_} Cluster')
     # plt.colorbar(label='class')
     
-def plotAllTypesCluster(dest_path='', k=15, show=False):
+def plotAllTypesCluster(dest_path='cluster_results.png', k=15, show=False):
     '''绘制四种层次聚类结果,聚成k类; 保存于路径dest_path；show区分是直接展示(True)还是保存到本地(False)'''
     p = utils.readCSV()
     fig, axs = plt.subplots(2, 2, figsize=(12, 9))
@@ -233,7 +232,7 @@ def plotSSE_Silhouette_GMM_k(seed=8208, show=False):
         sses.append(calcSSE(p, label, k))
         silhouettes.append(calcSilhouette(p_dist, label))
     fig, ax1 = plt.subplots()
-    plotDoubleLines(sses, silhouettes, K_LIST, 'SSE', 'Silhouette', ax1, 'GMM')
+    plotDoubleLines(sses, silhouettes, K_LIST, 'SSE', 'Silhouette', ax1, 'GMM', (1,1))
     if show:
         plt.show()
     else:
@@ -312,7 +311,7 @@ def compareWardAndGMM(seed=8914, show=False):
     else:
         plt.savefig(f'Ward_vs_GMM_compare.png')
 # compareWardAndGMM(8914, True)
-compareWardAndGMM(8914, False)
+# compareWardAndGMM(8914, False)
 
 # 下面代码没有在正式部分使用
 def plotGMMcluster():

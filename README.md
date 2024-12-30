@@ -14,7 +14,7 @@
 - `matplotlib` 用于绘制图表
 - `sklearn` 用于绘制图表、协同过滤
 
-项目主函数入口在 `main.py`，使用命令行参数来选择执行内容。(具体解释见下文)
+项目主函数入口在 `main.py`，使用命令行参数来选择执行内容，执行下面指令的任意一条，选择不同的功能。(具体解释见下文)
 
 ```sh
 python main.py --cluster plot # 绘制层次聚类结果展示
@@ -28,13 +28,13 @@ python main.py --compare plot # 对比展示层次聚类和GMM聚类结果
 python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
 ```
 
-
+> 在每条指令的后面输入 `--save`，可以把结果展示到屏幕改为写入到磁盘。
 
 支持的运行功能的详细介绍：(若 Linux，可以把 `python` 改为 `python3` 等)
 
 1. 对给定数据 `8gau.txt`，执行层次聚类，生成结果。
 
-   1. 使用预先运行好的层次聚类结果绘图，**绘制四种聚类结果**。结果直接展示。
+   - 使用预先运行好的层次聚类结果绘图，**绘制四种聚类结果**(最小、最大、组平均、ward聚类)。结果直接展示。
 
       ```sh
       python main.py --cluster plot
@@ -48,7 +48,7 @@ python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
       >
       > 此时会把结果保存在项目根目录 `cluster_results.png`。
 
-   2. **计算 SSE 和轮廓系数**，绘图展示。
+   - **计算 SSE 和轮廓系数**，绘图展示。
 
       鉴于轮廓系数计算耗时较久，需要等待大约两分钟。
 
@@ -64,7 +64,7 @@ python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
       >
       > 此时会把结果保存在项目根目录 `both_partial.png`。表示两个结果(both)的部分(partial)分类(k<=25)结果。
 
-   3. **绘制层次聚类的步骤**，保存到本地。
+   - **绘制层次聚类的步骤**，保存到本地。
 
       ```sh
       python main.py --cluster step
@@ -77,7 +77,7 @@ python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
       - 平均聚类 `average_clustering_steps.png`
       - ward聚类 `ward_clustering_steps.png`
 
-   4. 对原数据集**进行层次聚类，生成聚类结果**(聚类步骤记录)。
+   - 对原数据集**进行层次聚类，生成聚类结果**(聚类步骤记录)。
 
       ```sh
       python main.py --cluster generate
@@ -90,9 +90,82 @@ python main.py --compare stat # 对比展示层次聚类和GMM聚类指标
       - 平均聚类 `steps_average.txt`
       - ward聚类 `steps_ward.txt`
 
-2. 
+2. 对给定数据 `8gau.txt`，执行GMM聚类，生成结果。
 
-   > 注：因为使用了随机函数，所以偶然结果不佳是正常现象，可以重新运行一次。
+   > 注：因为使用了随机函数，所以GMM的结果偶然不佳是正常现象，可以重新运行一次。
+
+   - 分别使用随机初始化、K-Means初始化、K-Medoids初始化、K-Means++初始化执行GMM，**绘制四种策略下GMM的聚类结果**。
+
+      ```sh
+      python main.py --gmm diff_init
+      ```
+
+      > 如果要保存结果(不展示)，修改为：
+      >
+      > ```sh
+      > python main.py --gmm diff_init --save
+      > ```
+      >
+      > 此时会把结果保存在项目根目录 `GMM_different_strategy.png`。
+
+   - 分别对不同的聚类数 $k$ 进行GMM聚类，**绘制不同聚类数 $k$ 下GMM的聚类结果**。
+
+      ```sh
+      python main.py --gmm diff_k
+      ```
+
+      > 如果要保存结果(不展示)，修改为：
+      >
+      > ```sh
+      > python main.py --gmm diff_k --save
+      > ```
+      >
+      > 此时会把结果保存在项目根目录 `GMM_different_k.png`。
+
+   - 分别对不同的聚类数 $k$ 进行GMM聚类，**绘制不同聚类数 $k$ 下GMM的聚类的SSE和轮廓系数**。
+
+      ```sh
+      python main.py --gmm diff_k_stat
+      ```
+
+      > 如果要保存结果(不展示)，修改为：
+      >
+      > ```sh
+      > python main.py --gmm diff_kstat --save
+      > ```
+      >
+      > 此时会把结果保存在项目根目录 `GMM_different_k_sse_silhouette.png`。
+
+3. 对给定数据 `8gau.txt`，对**层次聚类和GMM聚类比较，生成结果**。
+
+   - 绘制ward层次聚类和K-means++初始化的GMM聚类聚成 $k=15$ 类的**聚类结果**。
+
+      ```sh
+      python main.py --compare plot
+      ```
+
+      > 如果要保存结果(不展示)，修改为：
+      >
+      > ```sh
+      > python main.py --compare plot --save
+      > ```
+      >
+      > 此时会把结果保存在项目根目录 `Ward_vs_GMM.png`。
+
+   - 绘制和输出ward层次聚类和K-means++初始化的GMM聚类聚成 $k=15$ 类的**聚类指标SSE、轮廓系数**。绘图对比，并在控制台输出指标值。
+
+      ```sh
+      python main.py --compare stat
+      ```
+
+      > 如果要保存结果(不展示)，修改为：
+      >
+      > ```sh
+      > python main.py --compare stat --save
+      > ```
+      >
+      > 此时会把结果保存在项目根目录 `Ward_vs_GMM_compare.png`。
+
 
 
 
