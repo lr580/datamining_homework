@@ -7,3 +7,4 @@ __pycache__/
 README.pdf
 report.pdf
 *.pkl.npz
+!steps_*.txt
