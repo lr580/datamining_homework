@@ -181,12 +181,12 @@ def plotLines_GMM(seed=8146, show=False):
 #     seed = np.random.randint(1000, 10000)
 #     print(seed)
 #     plotLines_GMM(seed, True)
-plotLines_GMM(8146, True)
+# plotLines_GMM(8146, True)
 # plotLines_GMM(8146, False)
 
 def plotLines_GMM_k(seed=8146, show=False):
     '''绘图展示GMM聚类为不同k的结果，测试不同的初始化策略'''
-    k_list = [15, 2, 4, 6, 8, 10, 13,17, 19]
+    k_list = [2, 4, 6, 8, 10, 12, 15, 17, 18]
     p = utils.readCSV()
     fig, axs = plt.subplots(3, 3, figsize=(12, 9))
     plt.suptitle('Different K for GMM Clustering')
@@ -199,7 +199,10 @@ def plotLines_GMM_k(seed=8146, show=False):
         plt.show()
     else:
         plt.savefig(f'GMM_different_k.png')
-# plotLines_GMM_k(8146, True)
+# seed = np.random.randint(1000, 10000)
+# print(seed)
+# plotLines_GMM_k(seed, True)
+plotLines_GMM_k(8208, True)
 # plotLines_GMM_k(8146, False)
 
 def plotGMMcluster():

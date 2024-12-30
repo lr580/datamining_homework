@@ -33,21 +33,18 @@ class GMM:
         kmeans.fit(X)
         y = kmeans.predict(X)
         self.calcParams(X, y, kmeans.centroids)
-        # self.means = kmeans.centroids
-        # self.weights = np.ones(self.k) / self.k
         
-
     def init_with_kmedoids(self, X):
         '''输入数据X[n][2],用Kmedoids算法初始化k个高斯分布的参数(μ,Σ,w)\n
         未在正式代码使用，已废置'''
         kmedoids = KMedoids(n_clusters=self.k, random_state=self.seed)
         kmedoids.fit(X)
-        y = kmedoids.predict(X)
-        self.calcParams(X, y, kmedoids.medoids)
-        # self.means = kmedoids.medoids
-        # self.weights = np.ones(self.k) / self.k
-        
-        # self.covariances = np.array([np.eye(X.shape[1])] * self.k)
+        self.means = kmedoids.medoids
+        self.weights = np.ones(self.k) / self.k
+        self.covariances = np.array([np.eye(X.shape[1])] * self.k)
+        # 修改为下面的代码会让 KMeans/KMeans++受到影响，理由未知，所以放弃了修改
+        # y = kmedoids.predict(X)
+        # self.calcParams(X, y, kmedoids.medoids)
 
     ALL_INIT_STRAGEGY = ['random', 'kmedoids', 'kmeans', 'kmeans++']
     '''所有初始化策略'''
