@@ -13,6 +13,7 @@ elif argv[0] == '--cluster': # 层次聚类
         else:  # 直接展示
             cluster_criteria.plotAllTypesCluster(show=True)
     elif argv[1] == 'stat': # 计算SSE, 轮廓系数，绘图展示
+        print('由于轮廓系数计算较慢，请耐心等待大约一两分钟')
         if len(argv) >= 3 and argv[2] == '--save': # 保存到磁盘
             cluster_criteria.plotLines('both', show=False)
         else:  # 直接展示

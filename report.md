@@ -33,7 +33,7 @@
 
 ![cluster_results](img/cluster_results.png)
 
-观察图像知，最小、最大聚类结果不佳，另两种较好，且ward聚类更好。
+观察图像知，最小、最大聚类结果不佳，另两种较好，且ward聚类(图右下结果)更好。
 
 > 篇幅原因，聚类过程等信息展示见 `README.md`。
 
@@ -41,3 +41,35 @@
 
 ### GMM
 
+#### 实现过程
+
+基于EM(期望最大化)算法实现了 GMM 聚类，使用 numpy 优化了运算。**实现了多种手写初始化策略，可基于随机化、K-means、K-medoids、K-means++来初始化GMM**，经过对比K-means++聚类效果最佳。运行复杂度近似为 $O(n)$，能在1秒内。
+
+#### 参数选择
+
+首先对不同初始化策略实验(聚类$k=15$)，结果表明K-means++初始化GMM最佳。
+
+![GMM_different_strategy](img/GMM_different_strategy.png)
+
+接着尝试了不同的聚类数目 $k$，观察结果表明 $k=15$ 类效果最佳。
+
+![GMM_different_k](img/GMM_different_k.png)
+
+对它们做 SSE 和轮廓系数计算，统计结果同样表明 $k=15$ 最佳。
+
+<img src="img/GMM_different_k_sse_silhouette.png" alt="GMM_different_k_sse_silhouette" style="zoom:80%;" />
+
+### 对比
+
+将 ward 层次聚类与 Kmeans++ 初始化的 GMM 结果聚成 $15$ 类对比如下。
+
+![Ward_vs_GMM](img/Ward_vs_GMM.png)
+
+可观察到它们都很好地聚成了 $15$ 类，求 SSE 和轮廓系数对比：
+
+| 指标\聚类方法 | 层次聚类                | GMM                     |
+| ------------- | ----------------------- | ----------------------- |
+| SSE           | $9.054839\times10^{12}$ | $8.942035\times10^{12}$ |
+| 轮廓系数      | $0.708545$              | $0.710919$              |
+
+结果表明，GMM 聚类 SSE 略低，轮廓系数略高，故稍好于层次聚类。

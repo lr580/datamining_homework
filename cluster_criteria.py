@@ -5,15 +5,25 @@ import gmm # 手写GMM
 import utils # 手写辅助函数
 import matplotlib.pyplot as plt 
 import numpy as np
+from matplotlib.patches import Patch
 # @utils.print_exec_time # 0.02s
 def calcSSEs(n, steps, p):
-    '''给定聚类过程steps和点集p，计算聚成k∈[1,n]类各自的SSE，返回0-indexed的SSE列表 \n 复杂度 O(nα)≈O(n)'''
+    '''给定层次聚类过程steps和点集p，计算聚成k∈[1,n]类各自的SSE，返回0-indexed的SSE列表 \n 复杂度 O(nα)≈O(n)'''
     dsu = disjointSet.DSU_SSE(n, p)
     sse = [0] * n
     for i in range(n - 1):
         u, v, _ = steps[i]
         dsu.merge(u, v)
         sse[-(i+2)] = dsu.sse
+    return sse
+
+def calcSSE(p, labels, k):
+    '''给定点集p和每个店所属的labels数组和类别数k，求SSE，复杂度为 O(n)，用于 GMM'''
+    sse = 0
+    for i in range(k):
+        cluster_points = p[labels == i]
+        centroid = np.mean(cluster_points, axis=0)
+        sse += np.sum((cluster_points - centroid) ** 2)
     return sse
 
 # @utils.print_exec_time
@@ -67,7 +77,8 @@ def plotLine(seq, type_, metric, logScale=False):
     
 def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
     '''绘制双Y轴折线图给定两个序列为y1,y2，x轴为x，两个序列名字为y1name,y2name，图标题为type_'''
-    ax1.set_title(f'{type_} Cluster'.title()) 
+    type_ = type_ if type_.isupper() else type_.title()
+    ax1.set_title(f'{type_} Cluster') 
     ax1.set_xlabel('Number of Clusters')
     c1, c2 = 'lightcoral', 'steelblue' # 绘图颜色(teal, orange)
     
@@ -80,8 +91,12 @@ def plotDoubleLines(y1, y2, x, y1name, y2name, ax1, type_):
     ax2.set_ylabel(y2name, color=c2)
     ax2.tick_params(axis='y', labelcolor=c2)
     # ax1.legend(loc='upper left')
-    ax1.legend(loc='upper right')
-    ax2.legend(loc='upper right', bbox_to_anchor=(1, 0.86))
+    # ax1.legend(loc='upper right')
+    # ax2.legend(loc='upper right', bbox_to_anchor=(1, 0.86))
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    handles = [Patch(color=c1, alpha=1, label=y1name), Patch(color=c2, alpha=1, label=y2name)]
+    ax2.legend(handles=handles, loc='upper right')
     ax1.grid()
 
 # @utils.print_exec_time
@@ -184,13 +199,15 @@ def plotLines_GMM(seed=8146, show=False):
 # plotLines_GMM(8146, True)
 # plotLines_GMM(8146, False)
 
-def plotLines_GMM_k(seed=8146, show=False):
-    '''绘图展示GMM聚类为不同k的结果，测试不同的初始化策略'''
-    k_list = [2, 4, 6, 8, 10, 12, 15, 17, 18]
+K_LIST = [2, 4, 6, 8, 10, 12, 15, 17, 20]
+'''用于测试GMM的不同分类数目k'''
+
+def plotLines_GMM_k(seed=8208, show=False):
+    '''绘图展示GMM聚类为不同k的结果'''
     p = utils.readCSV()
     fig, axs = plt.subplots(3, 3, figsize=(12, 9))
     plt.suptitle('Different K for GMM Clustering')
-    for i, k in enumerate(k_list):
+    for i, k in enumerate(K_LIST):
         label, model = gmm.GMMcluster(p, k, 'kmeans++', seed)
         plt.subplot(3,3,i+1)
         plotClusterResults(p, label, f'GMM (K={k})')
@@ -202,9 +219,102 @@ def plotLines_GMM_k(seed=8146, show=False):
 # seed = np.random.randint(1000, 10000)
 # print(seed)
 # plotLines_GMM_k(seed, True)
-plotLines_GMM_k(8208, True)
-# plotLines_GMM_k(8146, False)
+# plotLines_GMM_k(8208, True)
+# plotLines_GMM_k(8208, False)
 
+def plotSSE_Silhouette_GMM_k(seed=8208, show=False):
+    '''绘图展示GMM聚类为不同k的结指标'''
+    p = utils.readCSV()
+    p_dist = utils.getDisMatrix(p)
+    # plt.suptitle('SSE and Silhoutte Coefficient of Different K for GMM Clustering')
+    sses, silhouettes = [], []
+    for i, k in enumerate(K_LIST):
+        label, model = gmm.GMMcluster(p, k, seed=seed)
+        sses.append(calcSSE(p, label, k))
+        silhouettes.append(calcSilhouette(p_dist, label))
+    fig, ax1 = plt.subplots()
+    plotDoubleLines(sses, silhouettes, K_LIST, 'SSE', 'Silhouette', ax1, 'GMM')
+    if show:
+        plt.show()
+    else:
+        plt.savefig(f'GMM_different_k_sse_silhouette.png')
+# plotSSE_Silhouette_GMM_k(8208, True)
+# plotSSE_Silhouette_GMM_k(8208, False)
+
+def plotWardVsGMM(seed=8914, show=False):
+    '''绘图展示Ward和GMM的对比'''
+    p = utils.readCSV()
+    with open('steps_ward.txt', 'r') as f:
+        steps = eval(f.read())
+    label_ward = cluster.ClusterFromSteps(p.shape[0], steps, 15)
+    # sse_ward = calcSSE(p, label_ward, 15)
+    # silhouette_ward = calcSilhouette(p_dist, label_ward)
+    label_gmm, model = gmm.GMMcluster(p, 15, 'kmeans++', seed)
+    # sse_gmm = calcSSE(p, label_gmm, 15)
+    # silhouette_gmm = calcSilhouette(p_dist, label_gmm)
+    fig, axs = plt.subplots(1, 2, figsize=(11, 5))
+    plt.suptitle('Hierarchical Cluster VS GMM Cluster')
+    plt.subplot(1, 2, 1)
+    plotClusterResults(p, label_ward, 'Ward Hierarchical')
+    plt.subplot(1, 2, 2)
+    plotClusterResults(p, label_gmm, 'GMM (KMeans++ Init)')
+    if show:
+        plt.show()
+    else:
+        plt.savefig(f'Ward_vs_GMM.png')
+# seed = np.random.randint(1000, 10000)
+# print(seed)
+# plotWardVsGMM(8914, True)
+# plotWardVsGMM(8914, False)
+
+def compareWardAndGMM(seed=8914, show=False):
+    '''对比Ward和GMM的聚类结果'''
+    p = utils.readCSV()
+    p_dist = utils.getDisMatrix(p)
+    with open('steps_ward.txt', 'r') as f:
+        steps = eval(f.read())
+    label_ward = cluster.ClusterFromSteps(p.shape[0], steps, 15)
+    sse_ward = calcSSE(p, label_ward, 15)
+    silhouette_ward = calcSilhouette(p_dist, label_ward)
+    label_gmm, model = gmm.GMMcluster(p, 15, 'kmeans++', seed)
+    sse_gmm = calcSSE(p, label_gmm, 15)
+    silhouette_gmm = calcSilhouette(p_dist, label_gmm)
+    # print(sse_ward, sse_gmm)
+    # print(silhouette_ward, silhouette_gmm)
+    print("{:<20} {:<20}".format("SSE Ward", "SSE GMM"))
+    print("{:<20} {:<20}".format(sse_ward, sse_gmm))
+    print("{:<20} {:<20}".format("Silhouette Ward", "Silhouette GMM"))
+    print("{:<20} {:<20}".format(silhouette_ward, silhouette_gmm))
+
+    labels = ['SSE', 'Silhoutte Coefficient']
+    fig, ax1 = plt.subplots()
+    width = 0.35 # 柱子宽
+    x = np.arange(2)
+    ax1.bar(x - width/2, [sse_ward, sse_gmm], width, label='Ward Hierarchical Cluster', color='b')
+    ax1.set_ylabel('SSE')
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(labels)
+    
+    ax2 = ax1.twinx()  # 共享x轴
+    ax2.bar(x + width/2, [silhouette_ward, silhouette_gmm], width, label='GMM (KMeans++ Init) Cluster', color='r')
+    ax2.set_ylabel('Silhouette Coefficient')
+    
+    # ax1.legend(loc='upper right')
+    # ax2.legend(loc='upper right', bbox_to_anchor=(1, 0.9))
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    handles = [Patch(color='b', alpha=1, label='Ward Hierarchical Cluster'), Patch(color='r', alpha=1, label='GMM (KMeans++ Init) Cluster')]
+    ax2.legend(handles=handles, loc='upper right')
+
+    plt.title('Ward Hierarchical Cluster VS GMM Cluster')
+    if show:
+        plt.show()
+    else:
+        plt.savefig(f'Ward_vs_GMM_compare.png')
+# compareWardAndGMM(8914, True)
+compareWardAndGMM(8914, False)
+
+# 下面代码没有在正式部分使用
 def plotGMMcluster():
     '''绘制高斯混合聚类结果'''
     X = utils.readCSV()
@@ -214,80 +324,83 @@ def plotGMMcluster():
     plt.show()
 # plotGMMcluster()
 
-
-# 下面代码没有在正式部分使用
 # @utils.print_exec_time
 def checkSilhouette(p, labels, score):
     '''检验计算正确性，设算出来系数是score，检验其是否正确\n
     未在正式代码使用，只用于测试'''
-    from sklearn.metrics import silhouette_score
+    raise ValueError("Abandoned")
+    # from sklearn.metrics import silhouette_score
     # from sklearn.metrics import silhouette_samples
-    answer = silhouette_score(p, labels)
+    # answer = silhouette_score(p, labels)
     # print(silhouette_samples(p, labels))
-    assert abs(answer - score) < 1e-6, f'answer: {answer}, score: {score}'
+    # assert abs(answer - score) < 1e-6, f'answer: {answer}, score: {score}'
     
 def testSilhouette1():
     '''检查正确性，未在正式代码使用，只用于测试 \n 
     检测轮廓系数的计算'''
-    p = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
-    from sklearn.cluster import KMeans
-    kmeans = KMeans(n_clusters=3, random_state=0)
-    labels = kmeans.fit_predict(p)
+    raise ValueError("Abandoned")
+    # p = np.array([[1, 2], [1, 4], [1, 0], [10, 2], [10, 4], [10, 0]])
+    # from sklearn.cluster import KMeans
+    # kmeans = KMeans(n_clusters=3, random_state=0)
+    # labels = kmeans.fit_predict(p)
     # print(labels)
-    dis = utils.getDisMatrix(p)
-    score = calcSilhouette(dis, labels)
-    checkSilhouette(p, labels, score)
+    # dis = utils.getDisMatrix(p)
+    # score = calcSilhouette(dis, labels)
+    # checkSilhouette(p, labels, score)
 # testSilhouette1()
     
 def testSilhouette2():
     '''检查正确性，未在正式代码使用，只用于测试 \n 检测轮廓系数的计算'''
-    p = np.random.rand(5000, 2)
-    from sklearn.cluster import KMeans
-    kmeans = KMeans(n_clusters=25, random_state=0)
-    labels = kmeans.fit_predict(p)
-    dis = utils.getDisMatrix(p)
-    score = calcSilhouette(dis, labels)
-    checkSilhouette(p, labels, score)
+    raise ValueError("Abandoned")
+    # p = np.random.rand(5000, 2)
+    # from sklearn.cluster import KMeans
+    # kmeans = KMeans(n_clusters=25, random_state=0)
+    # labels = kmeans.fit_predict(p)
+    # dis = utils.getDisMatrix(p)
+    # score = calcSilhouette(dis, labels)
+    # checkSilhouette(p, labels, score)
 # testSilhouette2()
 
 def checkGMM():
     '''检查高斯混合聚类结果，未在正式代码使用，只用于测试'''
-    X = utils.readCSV()
-    from sklearn.mixture import GaussianMixture
-    gmm = GaussianMixture(n_components=15, random_state=0)
-    X0 = utils.z_score(X)
-    y = gmm.fit_predict(X0)
-    plotClusterResults(X, y, 'GMM')
-    plt.show()
-    for i in range(gmm.n_components):
-        print(i + 1)
-        print(gmm.weights_[i])
-        print(gmm.means_[i])
-        print(gmm.covariances_[i])
+    raise ValueError("Abandoned")
+    # X = utils.readCSV()
+    # from sklearn.mixture import GaussianMixture
+    # gmm = GaussianMixture(n_components=15, random_state=0)
+    # X0 = utils.z_score(X)
+    # y = gmm.fit_predict(X0)
+    # plotClusterResults(X, y, 'GMM')
+    # plt.show()
+    # for i in range(gmm.n_components):
+    #     print(i + 1)
+    #     print(gmm.weights_[i])
+    #     print(gmm.means_[i])
+    #     print(gmm.covariances_[i])
 # checkGMM()
 
 def checkKMeans(strategy, seed=50):
     '''检查KMeans聚类结果，未在正式代码使用，只用于测试'''
-    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-    X = utils.readCSV()
-    X0 = utils.z_score(X)
-    model = gmm.KMeans(15, seed, strategy)
-    model.fit(X0)
-    y = model.predict(X0)
-    plt.subplot(1,2,1)
-    plotClusterResults(X0, y, 'KMeans '+strategy.title())
-    c = model.centroids
-    plt.scatter(c[:, 0], c[:, 1], c='black', marker='x')
+    raise ValueError("Abandoned")
+    # fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+    # X = utils.readCSV()
+    # X0 = utils.z_score(X)
+    # model = gmm.KMeans(15, seed, strategy)
+    # model.fit(X0)
+    # y = model.predict(X0)
+    # plt.subplot(1,2,1)
+    # plotClusterResults(X0, y, 'KMeans '+strategy.title())
+    # c = model.centroids
+    # plt.scatter(c[:, 0], c[:, 1], c='black', marker='x')
 
-    from sklearn.cluster import KMeans
-    model2 = KMeans(15, random_state=seed)
-    model2.fit(X0)
-    y2 = model2.predict(X0)
-    plt.subplot(1,2,2)
-    plotClusterResults(X0, y2, 'KMeans '+strategy.title())
-    c = model2.cluster_centers_
-    plt.scatter(c[:, 0], c[:, 1], c='black', marker='x')
-    plt.show()
+    # from sklearn.cluster import KMeans
+    # model2 = KMeans(15, random_state=seed)
+    # model2.fit(X0)
+    # y2 = model2.predict(X0)
+    # plt.subplot(1,2,2)
+    # plotClusterResults(X0, y2, 'KMeans '+strategy.title())
+    # c = model2.cluster_centers_
+    # plt.scatter(c[:, 0], c[:, 1], c='black', marker='x')
+    # plt.show()
 # checkKMeans('random')
 # checkKMeans('kmeans++', 996)
 
@@ -302,3 +415,35 @@ def checkKMedoids():
     plotClusterResults(X, y, 'KMedoids')
     plt.show()
 # checkKMedoids()
+
+def checkSSE():
+    '''用 calcSSEs 测试 calcSSE 的正确性，结果表明 calcSSE 的 SSE 计算正确'''
+    with open('steps_ward.txt', 'r') as f:
+        steps = eval(f.read())
+    p = utils.readCSV()
+    n = 5000
+    dsu = disjointSet.DSU_SSE(n, p)
+    for i in range(n - 15):
+        u, v, _ = steps[i]
+        dsu.merge(u, v)
+    labels = disjointSet.getClasses(dsu)
+    sse2 = calcSSE(p, labels, 15)
+    sse1 = dsu.sse
+    print(sse1, sse2) # 9054838502187.725 9054838502187.762
+# checkSSE()
+
+def test_gmm_save_and_load():
+    '''检测GMM模型的可复现性，训练后保存模型参数，结果检查正确'''
+    p = utils.readCSV()
+    label, model = gmm.GMMcluster(p)
+    plotClusterResults(p, label, 'GMM1')
+    plt.show()
+    model.save_params('gmm.pkl')
+    # model.print_params()
+    model2 = gmm.GMM()
+    model2.load_params('gmm.pkl.npz')
+    # model2.print_params()
+    label2 = model2.predict(utils.z_score(p))
+    plotClusterResults(p, label2, 'GMM2')
+    plt.show()
+# test_gmm_save_and_load()

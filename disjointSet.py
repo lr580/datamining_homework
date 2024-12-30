@@ -171,6 +171,8 @@ class DSU_top(DSU):
         self.top[fy] = max(self.top[fx], self.top[fy])
         self.siz[fy] += self.siz[fx]
 
+
+
 # 往下的数据结构没有正式代码中用到，它们是在我实现层次聚类过程中的一些尝试
 class DSU_cluster(DSU):
     '''维护组间信息的并查集，维护组元素数目，\n并且每次合并将一个虚拟节点加入合并后的类(假设最多合并m次) \n 专门适配层次聚类的并查集 \n 已经被拆分优化，以便于代码复用'''

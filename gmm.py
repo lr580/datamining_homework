@@ -1,8 +1,10 @@
 # 手写实现的 GMM(高斯混合模型 Gaussian Mixture Models)
 import numpy as np # 加速运算
 import utils # 手写辅助函数，如读取数据集
+import warnings
+warnings.filterwarnings('ignore', category=RuntimeWarning)
 class GMM:
-    def __init__(self, k, init_strategy='random', seed=50, err=1e-4, max_iter=100):
+    def __init__(self, k=0, init_strategy='random', seed=50, err=1e-4, max_iter=100):
         '''输入k:聚成k个类(k个二维正态(高斯)分布), 精度误差范围err，随机数种子seed，最大迭代次数max_iter\n
         初始化策略 strategy (参见init()方法)\n
         初始化一个高斯混合模型'''
@@ -129,17 +131,33 @@ class GMM:
         for i, x in enumerate(self.log_likelihoods):
             print(f'iter {i}: {x}')
 
+    def save_params(self, path):
+        '''保存模型参数，方便重现结果，主要用于调试'''
+        np.savez(path, weights=self.weights, means=self.means, covariances=self.covariances, k=self.k, seed=self.seed, strategy=self.strategy, max_iter=self.max_iter, err=self.err)
+    
+    def load_params(self, path):
+        '''加载模型参数'''
+        data = np.load(path)
+        self.weights = data['weights']
+        self.means = data['means']
+        self.covariances = data['covariances']
+        self.k = data['k']
+        self.seed = data['seed']
+        self.strategy = data['strategy']
+        self.max_iter = data['max_iter']
+        self.err = data['err']
+
     # @utils.print_exec_time
     def init_with_Kmeans0(self, X, seed=50):
         '''输入数据X[n][2], 用Kmeans算法初始化k个高斯分布的参数(μ,Σ,w) \n
         未在正式代码使用，已废置'''
-        from sklearn.cluster import KMeans
-        kmeans = KMeans(n_clusters=self.k, random_state=seed)
-        kmeans.fit(X)
-        self.means = kmeans.cluster_centers_
-        self.weights = np.ones(self.k) / self.k
-        # self.covariances = np.array([np.eye(X.shape[1])] * self.k)
-        self.covariances = np.array([np.cov(X[kmeans.labels_ == i].T) + 1e-6 * np.eye(X.shape[1]) for i in range(self.k)])
+        raise ValueError("Abandoned")
+        # from sklearn.cluster import KMeans
+        # kmeans = KMeans(n_clusters=self.k, random_state=seed)
+        # kmeans.fit(X)
+        # self.means = kmeans.cluster_centers_
+        # self.weights = np.ones(self.k) / self.k
+        # self.covariances = np.array([np.cov(X[kmeans.labels_ == i].T) + 1e-6 * np.eye(X.shape[1]) for i in range(self.k)])
 
 
 class KMeans:
@@ -158,11 +176,10 @@ class KMeans:
         '''随机初始化质心'''
         self.centroids = X[np.random.choice(X.shape[0], self.n_clusters, replace=False)]
 
-    def init_improved(self, X):
-        '''Kmeans++初始化质心'''
+    def kmeans_plus_plus(self, X):
+        '''kmeans++核心流程 (旧版实现，可能会随机不良而报错，已经废置，改进版在 init_improved)'''
         n_samples, _ = X.shape
-        centroids = np.empty((self.n_clusters, X.shape[1]))
-        self.centroids = centroids
+        centroids = self.centroids 
         centroids[0] = X[np.random.choice(n_samples)]
         for k in range(1, self.n_clusters):
             distances = self.compute_distances(X)
@@ -170,6 +187,36 @@ class KMeans:
             probabilities = min_distances / np.sum(min_distances)
             centroids[k] = X[np.random.choice(n_samples, p=probabilities)]
         return centroids
+
+    def init_improved(self, X):
+        '''Kmeans++初始化质心'''
+        n_samples, _ = X.shape
+        centroids = np.empty((self.n_clusters, X.shape[1]))
+        self.centroids = centroids
+        # 尝试初始化，直到没有 NaN 值 (避免极端随机情况)
+        while True:
+            centroids[0] = X[np.random.choice(n_samples)]
+            valid = True 
+            for k in range(1, self.n_clusters):
+                distances = self.compute_distances(X)
+                min_distances = np.min(distances, axis=1)
+                if np.any(np.isnan(min_distances)):
+                    valid = False
+                    break
+                min_distances = np.maximum(min_distances, 1e-10) # 防止除以零的情况
+                probabilities = min_distances / np.sum(min_distances)
+                if np.sum(probabilities) == 0: # 确保概率数组的和为 1
+                    valid = False
+                    break
+                centroids[k] = X[np.random.choice(n_samples, p=probabilities)]
+            if valid:  # 如果没有 NaN 值，则跳出循环
+                break
+            # print('Kmeans++ -> Kmeans')
+            # 尝试过重新kmeans++，但是随机数种子固定，故会同样报错；所以发生小概率报错(大量实验表明，大约在3%以下)时，直接使用普通kmeans
+            self.init_random(X) # 如果有 NaN 值，重新随机初始化
+            break
+        return centroids
+        
 
     def init(self, X):
         '''初始化质心'''
@@ -243,7 +290,7 @@ class KMedoids:
         return self.assign_labels(X)
 
 # @utils.print_exec_time
-def GMMcluster(X=None, k=15, strategy='kmeans++', seed=50):
+def GMMcluster(X=None, k=15, strategy='kmeans++', seed=8914):
     '''使用手写GMM聚类，对数据集X(8gau.txt)进行聚类，聚成k类 \n
     初始化策略为 strategy, 参见 GMM.init() 函数描述 \n
     返回聚类结果y和模型本身'''
@@ -259,11 +306,12 @@ def GMMcluster(X=None, k=15, strategy='kmeans++', seed=50):
 @utils.print_exec_time
 def test_kmeans():
     '''检验聚类正确性，未在正式代码使用'''
-    from sklearn.datasets import make_blobs
-    X, _ = make_blobs(n_samples=5000, centers=15, cluster_std=0.60, random_state=0)
-    kmeans = KMeans(n_clusters=15)
-    kmeans.fit(X)
-    print(kmeans.centroids)
+    raise ValueError("Abandoned")
+    # from sklearn.datasets import make_blobs
+    # X, _ = make_blobs(n_samples=5000, centers=15, cluster_std=0.60, random_state=0)
+    # kmeans = KMeans(n_clusters=15)
+    # kmeans.fit(X)
+    # print(kmeans.centroids)
 # test_kmeans()
 
 def test_multivariate_gaussian():

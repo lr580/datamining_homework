@@ -83,6 +83,10 @@
       - 最大聚类 `steps_complete.txt`
       - 平均聚类 `steps_average.txt`
       - ward聚类 `steps_ward.txt`
+   
+   5. 1
+   
+      > 注：因为使用了随机函数，所以如果结果不佳，可以重新运行一次。
 
 
 
@@ -173,9 +177,34 @@
 
 ### GMM
 
-对四种 GMM 初始化办法，其聚类结果 ($k=15$ 类，$seed=8146$) 如下：
+对四种 GMM 初始化办法，其聚类结果 ($k=15$ 类，随机数种子 $seed=8146$) 如下：
 
 ![GMM_different_strategy](img/GMM_different_strategy.png)
+
+以 Kmeans++ 初始化，尝试不同的类别数 $k$，($seed=8208$)，结果如下：
+
+![GMM_different_k](img/GMM_different_k.png)
+
+对这九个类做 SSE 和轮廓系数计算，得：
+
+<img src="img/GMM_different_k_sse_silhouette.png" alt="GMM_different_k_sse_silhouette" style="zoom:75%;" />
+
+### 对比
+
+Kmeans++ 初始化GMM 与 Ward 聚类 $k=15$，随机数种子 $seed=8914$。聚类结果对比：
+
+对 SSE 和轮廓系数对比：
+
+<img src="img/Ward_vs_GMM_compare.png" alt="Ward_vs_GMM_compare" style="zoom: 67%;" />
+
+画图对比不明显，表格数据如下：
+
+| 指标\聚类方法 | 层次聚类                | GMM                     |
+| ------------- | ----------------------- | ----------------------- |
+| SSE           | $9.054839\times10^{12}$ | $8.942035\times10^{12}$ |
+| 轮廓系数      | $0.708545$              | $0.710919$              |
+
+
 
 ## 技术细节
 

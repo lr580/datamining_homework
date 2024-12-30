@@ -9,7 +9,7 @@ ALL_TYPES = ('single', 'complete','average', 'ward')
 '''所有四种层次聚类的名字'''
 
 # 手写的计时装饰器，可以取消，主要用于调试 (运行时间根据电脑性能不同存在差异)
-@utils.print_exec_time
+# @utils.print_exec_time
 def cluster(p:List[List[float]], type_:str, k:int=1):
     '''层次聚类 \n
     输入：p 是(n,2)的numpy数组代表n个欧式平面点 \n
@@ -258,6 +258,7 @@ def generateAllClusterSteps(lazy=False):
         path = f'steps_{type_}.txt'
         if os.path.exists(path) and lazy:
             continue
+        print(f'正在计算{type_}聚类')
         labels, steps = cluster(p, type_)
         with open(path, 'w') as f:
             f.write(str(steps))
@@ -282,7 +283,7 @@ def ClusterFromStepsBuilder(n, steps, k=1,continous=True):
 # for clusters in builder:
 #     print(clusters)
 
-def ClusterFromSteps(n, steps, k=1,):
+def ClusterFromSteps(n, steps, k=1):
     '''对n个点，根据完全聚类(聚成1类)的步骤steps，聚类成k类，直接返回结果labels'''
     dsu = DSU(n)
     for i in range(n-k):
@@ -307,6 +308,8 @@ def BuildPlottingSteps(steps):
         steps2[i] = np.array([tu, tv, dis, dsu.siz[dsu.findFa(top)]])
         top += 1
     return steps2
+
+
 
 # 以下是测试正确性的测试用例代码，并未在正式代码中使用
 def check_correct2(a, steps, type_:str):
@@ -428,7 +431,6 @@ def averageCluster_(p, k:int):
             alive[u] = 0
             alive[v] = 0
             alive[dsu.top] = 1
-            
             
             # for i in np.where(alive == 1)[0]:
             '''for i in alive:

@@ -4,3 +4,6 @@ __pycache__/
 *.txt
 *.png
 !img/*.png
+README.pdf
+report.pdf
+*.pkl.npz
